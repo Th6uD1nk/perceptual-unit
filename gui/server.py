@@ -11,6 +11,7 @@ from unit import Unit
 CONFIG_PATH = GUI_DIR / "config.json"
 PAGE_PATH = GUI_DIR / "index.html"
 HOST = "127.0.0.1"
+DEFAULT_PORT = 8100
 
 def load_unit(path=CONFIG_PATH):
   return Unit(json.loads(Path(path).read_text()))
@@ -37,3 +38,17 @@ def make_server(unit, port):
   server = ThreadingHTTPServer((HOST, port), Handler)
   server.unit = unit
   return server
+
+def main(arguments):
+  port = int(arguments[0]) if arguments else DEFAULT_PORT
+  server = make_server(load_unit(), port)
+  print(f"Serving the perceptual unit on http://{HOST}:{port}")
+  try:
+    server.serve_forever()
+  except KeyboardInterrupt:
+    pass
+  finally:
+    server.server_close()
+
+if __name__ == "__main__":
+  main(sys.argv[1:])
