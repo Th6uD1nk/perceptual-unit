@@ -12,3 +12,9 @@ class Plane:
       perception = Perception(hash_, x, y)
       self.perceptions[key] = perception
     return perception
+
+  def remove(self, perception):
+    if self.perceptions.get(perception.key) is not perception:
+      return False
+    del self.perceptions[perception.key]
+    return True
