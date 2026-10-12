@@ -1,4 +1,5 @@
 import collections
+import math
 
 from validation import validate_clock
 
@@ -19,7 +20,9 @@ class Scheduler:
 
   def cycle(self):
     for _ in range(len(self.queue)):
-      self.queue.popleft()()
+      used = self.queue.popleft()(math.inf)
+      if isinstance(used, bool) or not isinstance(used, int) or used < 0:
+        raise ValueError("work: must return an integer of at least 0")
 
   def advance(self, dt_ms):
     if dt_ms < 0:

@@ -294,6 +294,11 @@ class RunTest(unittest.TestCase):
   def ticks(self, count):
     self.scheduler.advance(float(count))
 
+  def test_a_run_gives_back_the_number_of_perceptions_it_visited(self):
+    self.source.receive("first", 0.5, 0.9, 0.0625)
+    self.source.receive("second", 0.6, 0.9, 0.0625)
+    self.assertEqual(self.cursor.run(10), 2)
+
   def test_a_started_cursor_waits_for_a_tick(self):
     self.assertEqual(self.cursor.segment, None)
     self.scheduler.advance(0.5)

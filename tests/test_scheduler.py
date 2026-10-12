@@ -1,3 +1,4 @@
+import math
 import unittest
 
 import support
@@ -51,7 +52,10 @@ class WorkTest(unittest.TestCase):
     self.calls = []
 
   def record(self, name):
-    return lambda: self.calls.append(name)
+    def work(units):
+      self.calls.append(name)
+      return 0
+    return work
 
   def test_a_submitted_work_waits_for_a_full_tick(self):
     self.scheduler.submit(self.record("a"))
@@ -66,9 +70,10 @@ class WorkTest(unittest.TestCase):
     self.assertEqual(self.calls, ["a"])
 
   def test_a_work_that_submits_itself_again_runs_at_every_tick(self):
-    def again():
+    def again(units):
       self.calls.append("again")
       self.scheduler.submit(again)
+      return 0
     self.scheduler.submit(again)
     self.scheduler.advance(12.0)
     self.assertEqual(self.calls, ["again", "again", "again"])
@@ -80,7 +85,10 @@ class WorkTest(unittest.TestCase):
     self.assertEqual(self.calls, ["a", "b", "c"])
 
   def test_a_work_submitted_during_a_cycle_waits_for_the_next_tick(self):
-    self.scheduler.submit(lambda: self.scheduler.submit(self.record("late")))
+    def submitter(units):
+      self.scheduler.submit(self.record("late"))
+      return 0
+    self.scheduler.submit(submitter)
     self.scheduler.advance(4.0)
     self.assertEqual(self.calls, [])
     self.scheduler.advance(4.0)
@@ -88,9 +96,28 @@ class WorkTest(unittest.TestCase):
 
   def test_the_ticks_are_counted_before_the_works_of_a_tick_run(self):
     seen = []
-    self.scheduler.submit(lambda: seen.append(self.scheduler.ticks))
+    def work(units):
+      seen.append(self.scheduler.ticks)
+      return 0
+    self.scheduler.submit(work)
     self.scheduler.advance(4.0)
     self.assertEqual(seen, [1])
+
+  def test_a_work_receives_unlimited_units_when_there_is_no_budget(self):
+    seen = []
+    def work(units):
+      seen.append(units)
+      return 0
+    self.scheduler.submit(work)
+    self.scheduler.advance(4.0)
+    self.assertEqual(seen, [math.inf])
+
+  def test_a_work_must_give_back_an_integer_of_at_least_zero(self):
+    for value in (-1, 1.5, "1", None, True):
+      scheduler = make_scheduler()
+      scheduler.submit(lambda units, value=value: value)
+      with self.assertRaises(ValueError, msg=repr(value)):
+        scheduler.advance(4.0)
 
   def test_a_work_must_be_callable(self):
     with self.assertRaises(ValueError):
