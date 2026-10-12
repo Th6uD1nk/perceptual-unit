@@ -46,3 +46,18 @@ def validate_clock(config):
   tick = clock["tick"]
   if isinstance(tick, bool) or not isinstance(tick, (int, float)) or tick < MIN_TICK_MS:
     fail("config.clock.tick", f"must be a number of at least {MIN_TICK_MS}")
+
+def validate_cursor(config):
+  if not isinstance(config, dict):
+    fail("config", "must be an object")
+  for key, strict in (("energy", True), ("step", True), ("attraction", False), ("distance_power", False), ("impact", False)):
+    if key not in config:
+      fail(f"config.{key}", "missing")
+    value = config[key]
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or (value <= 0 if strict else value < 0):
+      fail(f"config.{key}", "must be a number greater than 0" if strict else "must be a number of at least 0")
+  if "cooldown" not in config:
+    fail("config.cooldown", "missing")
+  cooldown = config["cooldown"]
+  if isinstance(cooldown, bool) or not isinstance(cooldown, int) or cooldown < 0:
+    fail("config.cooldown", "must be an integer of at least 0")

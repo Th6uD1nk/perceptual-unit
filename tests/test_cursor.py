@@ -7,12 +7,21 @@ from cursor import Cursor
 from perception import Perception
 from plane import Plane
 
-def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0):
+def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0):
+  return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact}
+
+def make_cursor(x, y, dx, dy, source=None, target=None, **settings):
   source = source if source is not None else Plane({"uid": "A", "peak": 10.0})
   target = target if target is not None else Plane({"uid": "C", "peak": 10.0})
-  return Cursor(x, y, dx, dy, source, target, energy, step, cooldown, attraction, distance_power, impact)
+  cursor = Cursor(make_config(**settings), source, target)
+  cursor.place(x, y, dx, dy)
+  return cursor
 
-class CreationTest(unittest.TestCase):
+class PlacementTest(unittest.TestCase):
+  def test_a_new_cursor_is_at_the_center_and_heads_right(self):
+    cursor = Cursor(make_config(), Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}))
+    self.assertEqual((cursor.x, cursor.y, cursor.dx, cursor.dy), (0.5, 0.5, 1.0, 0.0))
+
   def test_the_direction_is_normalized(self):
     cursor = make_cursor(0.5, 0.5, 3.0, 4.0)
     self.assertAlmostEqual(cursor.dx, 0.6)
@@ -27,43 +36,65 @@ class CreationTest(unittest.TestCase):
       with self.assertRaises(ValueError):
         make_cursor(x, y, 1.0, 0.0)
 
-  def test_an_energy_that_is_not_positive_is_refused(self):
-    plane = Plane({"uid": "A", "peak": 1.0})
-    for energy in (0, -0.5):
-      with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy, 0.25, 0, 0.0, 2.0, 0.0)
-
-  def test_a_step_that_is_not_positive_is_refused(self):
-    plane = Plane({"uid": "A", "peak": 1.0})
-    for step in (0, -0.25):
-      with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, step, 0, 0.0, 2.0, 0.0)
-
-  def test_a_cooldown_that_is_not_a_count_of_ticks_is_refused(self):
-    plane = Plane({"uid": "A", "peak": 1.0})
-    for cooldown in (-1, 1.5, "2", True, None):
-      with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, cooldown, 0.0, 2.0, 0.0)
-
-  def test_an_impact_below_zero_is_refused(self):
-    plane = Plane({"uid": "A", "peak": 1.0})
-    for value in (-1, "1", None, True):
-      with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, 0.0, 2.0, value)
-
-  def test_an_attraction_or_a_distance_power_below_zero_is_refused(self):
-    plane = Plane({"uid": "A", "peak": 1.0})
-    for value in (-1, "1", None, True):
-      with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, value, 2.0, 0.0)
-      with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, 0.0, value, 0.0)
-
   def test_a_position_on_the_edge_is_accepted(self):
     make_cursor(0.0, 1.0, 1.0, 0.0)
 
+  def test_a_refused_placement_leaves_the_cursor_where_it_was(self):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
+    with self.assertRaises(ValueError):
+      cursor.place(2.0, 0.5, 0.0, 1.0)
+    self.assertEqual((cursor.x, cursor.y, cursor.dx, cursor.dy), (0.25, 0.5, 1.0, 0.0))
+
+  def test_a_placement_forgets_the_last_segment_the_hits_and_the_force(self):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
+    cursor.advance(0.25)
+    cursor.hits.append("hit")
+    cursor.force_x = 1.0
+    cursor.place(0.5, 0.5, 0.0, 1.0)
+    self.assertIsNone(cursor.segment)
+    self.assertEqual(cursor.hits, [])
+    self.assertEqual((cursor.force_x, cursor.force_y), (0.0, 0.0))
+
   def test_there_is_no_segment_before_the_first_move(self):
     self.assertIsNone(make_cursor(0.5, 0.5, 1.0, 0.0).segment)
+
+class ConfigTest(unittest.TestCase):
+  def rejected(self, config):
+    with self.assertRaises(ValueError) as caught:
+      Cursor(config, Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}))
+    return str(caught.exception)
+
+  def test_a_config_must_be_an_object(self):
+    self.assertIn("config:", self.rejected([]))
+
+  def test_every_setting_is_required(self):
+    for key in make_config():
+      config = make_config()
+      del config[key]
+      self.assertIn(f"config.{key}", self.rejected(config), key)
+
+  def test_the_energy_and_the_step_must_be_numbers_greater_than_zero(self):
+    for key in ("energy", "step"):
+      for value in (0, -1, "1", None, True):
+        config = make_config()
+        config[key] = value
+        self.assertIn(f"config.{key}", self.rejected(config), repr((key, value)))
+
+  def test_the_attraction_the_distance_power_and_the_impact_must_be_numbers_of_at_least_zero(self):
+    for key in ("attraction", "distance_power", "impact"):
+      for value in (-1, "1", None, True):
+        config = make_config()
+        config[key] = value
+        self.assertIn(f"config.{key}", self.rejected(config), repr((key, value)))
+
+  def test_the_cooldown_must_be_an_integer_of_at_least_zero(self):
+    for value in (-1, 1.5, "2", True, None):
+      config = make_config()
+      config["cooldown"] = value
+      self.assertIn("config.cooldown", self.rejected(config), repr(value))
+
+  def test_zero_is_accepted_for_the_settings_that_allow_it(self):
+    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0), Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}))
 
 class AdvanceTest(unittest.TestCase):
   def test_the_cursor_moves_along_its_direction_by_the_distance(self):

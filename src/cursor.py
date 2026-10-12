@@ -1,21 +1,27 @@
 import math
 
+from validation import validate_cursor
+
 EPSILON = 1e-9
 EDGE_OFFSET = 1e-6
 
 class Cursor:
-  def __init__(self, x, y, dx, dy, source, target, energy, step, cooldown, attraction, distance_power, impact):
+  def __init__(self, config, source, target):
+    validate_cursor(config)
+    self.source = source
+    self.target = target
+    self.energy = config["energy"]
+    self.step = config["step"]
+    self.cooldown = config["cooldown"]
+    self.attraction = config["attraction"]
+    self.distance_power = config["distance_power"]
+    self.impact = config["impact"]
+    self.scheduler = None
+    self.place(0.5, 0.5, 1.0, 0.0)
+
+  def place(self, x, y, dx, dy):
     if not (0 <= x <= 1 and 0 <= y <= 1):
       raise ValueError("position: must be inside the plane")
-    if energy <= 0:
-      raise ValueError("energy: must be greater than 0")
-    if step <= 0:
-      raise ValueError("step: must be greater than 0")
-    for name, value in (("attraction", attraction), ("distance_power", distance_power), ("impact", impact)):
-      if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
-        raise ValueError(f"{name}: must be a number of at least 0")
-    if isinstance(cooldown, bool) or not isinstance(cooldown, int) or cooldown < 0:
-      raise ValueError("cooldown: must be an integer of at least 0")
     length = math.hypot(dx, dy)
     if length == 0:
       raise ValueError("direction: must not be null")
@@ -23,17 +29,8 @@ class Cursor:
     self.y = y
     self.dx = dx / length
     self.dy = dy / length
-    self.source = source
-    self.target = target
-    self.energy = energy
-    self.step = step
-    self.cooldown = cooldown
-    self.attraction = attraction
-    self.distance_power = distance_power
-    self.impact = impact
     self.force_x = 0.0
     self.force_y = 0.0
-    self.scheduler = None
     self.segment = None
     self.hits = []
 
