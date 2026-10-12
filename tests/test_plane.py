@@ -4,7 +4,7 @@ import support
 from perception import Perception
 from plane import Plane
 
-KEY = ("maison", 0.25, 0.75)
+KEY = ("house", 0.25, 0.75)
 
 class PlaneTest(unittest.TestCase):
   def test_a_new_plane_holds_no_perception(self):
@@ -38,14 +38,14 @@ class ReceiveTest(unittest.TestCase):
     self.assertEqual(first.energy, 3.5)
 
   def test_two_hashes_give_two_perceptions_with_their_own_energy(self):
-    self.plane.receive("maison", 0.25, 0.75, 2.0)
-    self.plane.receive("chat", 0.25, 0.75, 1.0)
-    self.assertEqual(self.plane.perceptions[("maison", 0.25, 0.75)].energy, 2.0)
-    self.assertEqual(self.plane.perceptions[("chat", 0.25, 0.75)].energy, 1.0)
+    self.plane.receive("house", 0.25, 0.75, 2.0)
+    self.plane.receive("cat", 0.25, 0.75, 1.0)
+    self.assertEqual(self.plane.perceptions[("house", 0.25, 0.75)].energy, 2.0)
+    self.assertEqual(self.plane.perceptions[("cat", 0.25, 0.75)].energy, 1.0)
 
   def test_two_positions_of_one_hash_give_two_perceptions(self):
-    self.plane.receive("maison", 0.25, 0.75, 1.0)
-    self.plane.receive("maison", 0.5, 0.75, 1.0)
+    self.plane.receive("house", 0.25, 0.75, 1.0)
+    self.plane.receive("house", 0.5, 0.75, 1.0)
     self.assertEqual(len(self.plane.perceptions), 2)
 
   def test_a_zero_amount_creates_nothing(self):
@@ -56,7 +56,7 @@ class ReceiveTest(unittest.TestCase):
     self.plane.receive(*KEY, 2.0)
     self.assertEqual(self.plane.receive(*KEY, -1.0), 0.0)
     self.assertEqual(self.plane.perceptions[KEY].energy, 2.0)
-    self.assertEqual(self.plane.receive("chat", 0.25, 0.75, -1.0), 0.0)
+    self.assertEqual(self.plane.receive("cat", 0.25, 0.75, -1.0), 0.0)
     self.assertEqual(len(self.plane.perceptions), 1)
 
 class RemoveTest(unittest.TestCase):
@@ -70,8 +70,8 @@ class RemoveTest(unittest.TestCase):
     self.assertNotIn(KEY, self.plane.perceptions)
 
   def test_the_other_perceptions_stay(self):
-    self.plane.receive("chat", 0.25, 0.75, 1.0)
-    kept = self.plane.perceptions[("chat", 0.25, 0.75)]
+    self.plane.receive("cat", 0.25, 0.75, 1.0)
+    kept = self.plane.perceptions[("cat", 0.25, 0.75)]
     self.plane.remove(self.perception)
     self.assertEqual(list(self.plane.perceptions.values()), [kept])
 
@@ -139,8 +139,8 @@ class TakeTest(unittest.TestCase):
     self.assertIs(self.plane.perceptions[KEY], self.perception)
 
   def test_the_other_perceptions_stay_when_one_is_emptied(self):
-    self.plane.receive("chat", 0.25, 0.75, 1.0)
-    kept = self.plane.perceptions[("chat", 0.25, 0.75)]
+    self.plane.receive("cat", 0.25, 0.75, 1.0)
+    kept = self.plane.perceptions[("cat", 0.25, 0.75)]
     self.plane.take(self.perception, 3.0)
     self.assertEqual(list(self.plane.perceptions.values()), [kept])
 
