@@ -176,6 +176,58 @@ class TakeTest(unittest.TestCase):
     self.plane.take(self.perception, 3.0)
     self.assertEqual(list(self.plane.perceptions.values()), [kept])
 
+class TransferTest(unittest.TestCase):
+  def setUp(self):
+    self.source = make_plane("A", peak=10.0)
+    self.target = make_plane("C", peak=4.0)
+    self.source.receive(*KEY, 3.0)
+    self.perception = self.source.perceptions[KEY]
+
+  def energy(self, plane):
+    return sum(perception.energy for perception in plane.perceptions.values())
+
+  def test_the_target_receives_at_the_same_triplet_what_the_source_gives_up(self):
+    self.assertEqual(self.source.transfer(self.perception, self.target, 2.0), 2.0)
+    self.assertEqual(self.target.perceptions[KEY].energy, 2.0)
+    self.assertEqual(self.perception.energy, 1.0)
+
+  def test_a_request_larger_than_the_energy_transfers_everything_and_empties_the_source(self):
+    self.assertEqual(self.source.transfer(self.perception, self.target, 5.0), 3.0)
+    self.assertEqual(self.target.perceptions[KEY].energy, 3.0)
+    self.assertNotIn(KEY, self.source.perceptions)
+
+  def test_the_surplus_above_the_target_peak_stays_in_the_source(self):
+    self.source.receive(*KEY, 4.0)
+    before = self.energy(self.source) + self.energy(self.target)
+    self.assertEqual(self.source.transfer(self.perception, self.target, 7.0), 4.0)
+    self.assertEqual(self.target.perceptions[KEY].energy, 4.0)
+    self.assertEqual(self.perception.energy, 3.0)
+    self.assertEqual(self.energy(self.source) + self.energy(self.target), before)
+
+  def test_a_target_perception_at_the_peak_accepts_nothing_and_the_source_keeps_everything(self):
+    self.target.receive(*KEY, 4.0)
+    self.assertEqual(self.source.transfer(self.perception, self.target, 2.0), 0.0)
+    self.assertEqual(self.perception.energy, 3.0)
+
+  def test_the_transfer_feeds_an_existing_perception_of_the_target(self):
+    self.target.receive(*KEY, 1.0)
+    self.source.transfer(self.perception, self.target, 2.0)
+    self.assertEqual(self.target.perceptions[KEY].energy, 3.0)
+    self.assertEqual(len(self.target.perceptions), 1)
+
+  def test_a_zero_or_negative_amount_transfers_nothing(self):
+    self.assertEqual(self.source.transfer(self.perception, self.target, 0.0), 0.0)
+    self.assertEqual(self.source.transfer(self.perception, self.target, -1.0), 0.0)
+    self.assertEqual(self.target.perceptions, {})
+    self.assertEqual(self.perception.energy, 3.0)
+
+  def test_a_perception_that_is_not_on_the_source_transfers_nothing(self):
+    stranger = Perception(*KEY)
+    stranger.energy = 3.0
+    self.assertEqual(self.source.transfer(stranger, self.target, 2.0), 0.0)
+    self.assertEqual(self.target.perceptions, {})
+    self.assertEqual(stranger.energy, 3.0)
+
 class InvariantTest(unittest.TestCase):
   def test_every_perception_on_a_plane_has_energy(self):
     plane = make_plane()

@@ -32,3 +32,10 @@ class Plane:
     if taken > 0 and perception.energy <= 0:
       self.remove(perception)
     return taken
+
+  def transfer(self, perception, target, amount):
+    if self.perceptions.get(perception.key) is not perception:
+      return 0.0
+    offered = min(amount, perception.energy)
+    accepted = target.receive(perception.hash, perception.x, perception.y, offered)
+    return self.take(perception, accepted)
