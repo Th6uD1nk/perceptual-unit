@@ -85,5 +85,45 @@ class RemoveTest(unittest.TestCase):
     self.assertIsNot(new, old)
     self.assertEqual(new.energy, 0.0)
 
+class ReceiveTest(unittest.TestCase):
+  def setUp(self):
+    self.plane = Plane({"uid": "A"})
+
+  def test_a_reception_creates_a_perception_with_that_energy(self):
+    self.plane.receive("maison", 0.25, 0.75, 2.0)
+    self.assertEqual(self.plane.perceptions[("maison", 0.25, 0.75)].energy, 2.0)
+
+  def test_a_reception_returns_the_amount_received(self):
+    self.assertEqual(self.plane.receive("maison", 0.25, 0.75, 2.0), 2.0)
+
+  def test_a_second_reception_at_the_same_triplet_adds_up(self):
+    self.plane.receive("maison", 0.25, 0.75, 2.0)
+    self.plane.receive("maison", 0.25, 0.75, 1.5)
+    self.assertEqual(len(self.plane.perceptions), 1)
+    self.assertEqual(self.plane.perceptions[("maison", 0.25, 0.75)].energy, 3.5)
+
+  def test_two_triplets_give_two_perceptions_with_their_own_energy(self):
+    self.plane.receive("maison", 0.25, 0.75, 2.0)
+    self.plane.receive("chat", 0.25, 0.75, 1.0)
+    self.assertEqual(self.plane.perceptions[("maison", 0.25, 0.75)].energy, 2.0)
+    self.assertEqual(self.plane.perceptions[("chat", 0.25, 0.75)].energy, 1.0)
+
+  def test_a_reception_feeds_a_perception_that_was_added_without_energy(self):
+    perception = self.plane.add("maison", 0.25, 0.75)
+    self.plane.receive("maison", 0.25, 0.75, 2.0)
+    self.assertEqual(perception.energy, 2.0)
+    self.assertEqual(len(self.plane.perceptions), 1)
+
+  def test_a_zero_amount_creates_nothing(self):
+    self.assertEqual(self.plane.receive("maison", 0.25, 0.75, 0.0), 0.0)
+    self.assertEqual(self.plane.perceptions, {})
+
+  def test_a_negative_amount_changes_nothing(self):
+    self.plane.receive("maison", 0.25, 0.75, 2.0)
+    self.assertEqual(self.plane.receive("maison", 0.25, 0.75, -1.0), 0.0)
+    self.assertEqual(self.plane.perceptions[("maison", 0.25, 0.75)].energy, 2.0)
+    self.assertEqual(self.plane.receive("chat", 0.25, 0.75, -1.0), 0.0)
+    self.assertEqual(len(self.plane.perceptions), 1)
+
 if __name__ == "__main__":
   unittest.main()

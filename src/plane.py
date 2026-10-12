@@ -18,3 +18,9 @@ class Plane:
       return False
     del self.perceptions[perception.key]
     return True
+
+  def receive(self, hash_, x, y, amount):
+    if amount <= 0:
+      return 0.0
+    self.add(hash_, x, y).energy += amount
+    return amount
