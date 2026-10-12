@@ -31,6 +31,7 @@ def validate_config(config):
   known = set()
   for index, entry in enumerate(planes):
     validate_plane(entry, f"config.planes[{index}]", known)
+  validate_clock(config)
 
 def validate_clock(config):
   if not isinstance(config, dict):
