@@ -1,0 +1,4 @@
+{
+  "scheduler": {"tick": 4.0, "budget": 0},
+  "planes": [{"uid": "A", "peak": 0.25}]
+}
