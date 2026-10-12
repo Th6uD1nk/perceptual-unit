@@ -4,6 +4,7 @@ import unittest
 
 import support
 from plane import Plane
+from transcription import token_hash, token_position
 from unit import Unit
 
 def entry(uid, peak=1.0):
@@ -56,6 +57,37 @@ class SchedulerTest(unittest.TestCase):
     second = Unit(CONFIG)
     first.update(8.0)
     self.assertEqual(second.ticks, 0)
+
+class FeedTest(unittest.TestCase):
+  def test_a_token_becomes_a_perception_of_the_first_plane_at_its_transcription(self):
+    unit = Unit(CONFIG)
+    unit.feed("house", 1.0)
+    x, y = token_position("house")
+    perception = unit.planes["A"].perceptions[(token_hash("house"), x, y)]
+    self.assertEqual(perception.energy, 1.0)
+
+  def test_the_other_planes_receive_nothing(self):
+    unit = Unit(CONFIG)
+    unit.feed("house", 1.0)
+    self.assertEqual(unit.planes["C"].perceptions, {})
+    self.assertEqual(unit.planes["D"].perceptions, {})
+
+  def test_the_same_token_fed_again_reinforces_its_perception(self):
+    unit = Unit(CONFIG)
+    unit.feed("house", 1.0)
+    unit.feed("house", 1.5)
+    self.assertEqual(len(unit.planes["A"].perceptions), 1)
+    self.assertEqual(next(iter(unit.planes["A"].perceptions.values())).energy, 2.5)
+
+  def test_feeding_returns_the_energy_accepted_by_the_plane(self):
+    self.assertEqual(Unit(CONFIG).feed("house", 6.0), 4.0)
+
+  def test_a_token_must_be_a_non_empty_string(self):
+    unit = Unit(CONFIG)
+    for token in ("", 3, None, ["house"]):
+      with self.assertRaises(ValueError, msg=repr(token)):
+        unit.feed(token, 1.0)
+    self.assertEqual(unit.planes["A"].perceptions, {})
 
 class StateTest(unittest.TestCase):
   def test_the_state_gives_the_ticks_and_the_planes_in_the_order_of_the_config(self):

@@ -2,6 +2,7 @@ import copy
 
 from plane import Plane
 from scheduler import Scheduler
+from transcription import token_hash, token_position
 from validation import validate_config
 
 class Unit:
@@ -17,6 +18,12 @@ class Unit:
 
   def update(self, dt_ms):
     return self.scheduler.advance(dt_ms)
+
+  def feed(self, token, energy):
+    if not isinstance(token, str) or not token:
+      raise ValueError("token: must be a non-empty string")
+    x, y = token_position(token)
+    return next(iter(self.planes.values())).receive(token_hash(token), x, y, energy)
 
   def state(self):
     return {"ticks": self.ticks, "planes": [plane.state() for plane in self.planes.values()]}
