@@ -8,6 +8,8 @@ from generator import Generator
 from perception import Perception
 from plane import Plane
 
+STILL = 1e-9
+
 def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0, cycle=1000):
   return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact, "cycle": cycle}
 
@@ -225,7 +227,7 @@ class FinishTest(unittest.TestCase):
   def test_a_touched_perception_is_read_and_its_energy_goes_to_the_target(self):
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.run_pass()
-    self.assertEqual(self.cursor.finish(0.25), 0.0625)
+    self.assertEqual(self.cursor.finish(1), 0.0625)
     self.assertEqual(self.source.perceptions[("first", 0.5, 0.5)].energy, 0.0625)
     self.assertEqual(self.target.perceptions[("first", 0.5, 0.5)].energy, 0.0625)
 
@@ -233,12 +235,12 @@ class FinishTest(unittest.TestCase):
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.source.receive("second", 0.625, 0.5, 0.125)
     self.run_pass()
-    self.assertEqual(self.cursor.finish(0.25), 0.125)
+    self.assertEqual(self.cursor.finish(1), 0.125)
 
   def test_a_perception_with_less_energy_than_a_read_gives_all_and_leaves_the_plane(self):
     self.source.receive("first", 0.5, 0.5, 0.03125)
     self.run_pass()
-    self.assertEqual(self.cursor.finish(0.25), 0.03125)
+    self.assertEqual(self.cursor.finish(1), 0.03125)
     self.assertEqual(self.source.perceptions, {})
 
   def test_the_peak_of_the_target_is_respected_and_the_surplus_stays_in_the_source(self):
@@ -247,39 +249,44 @@ class FinishTest(unittest.TestCase):
     cursor.advance(0.5)
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.source.visit(10, cursor.on_visit)
-    self.assertEqual(cursor.finish(0.25), 0.03125)
+    self.assertEqual(cursor.finish(1), 0.03125)
     self.assertEqual(self.source.perceptions[("first", 0.5, 0.5)].energy, 0.09375)
 
   def test_a_perception_removed_before_the_end_of_the_pass_is_not_read(self):
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.run_pass()
     self.source.remove(self.cursor.hits[0])
-    self.assertEqual(self.cursor.finish(0.25), 0.0)
+    self.assertEqual(self.cursor.finish(1), 0.0)
     self.assertEqual(self.target.perceptions, {})
 
   def test_the_hits_are_emptied_by_the_end_of_the_pass(self):
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.run_pass()
-    self.cursor.finish(0.25)
+    self.cursor.finish(1)
     self.assertEqual(self.cursor.hits, [])
 
   def test_the_cursor_moves_after_the_reads_and_keeps_the_new_segment(self):
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.run_pass()
-    self.cursor.finish(0.125)
+    self.cursor.finish(1)
     start_x, start_y, end_x, end_y = self.cursor.segment
-    self.assertAlmostEqual(end_x - start_x, 0.125)
+    self.assertAlmostEqual(end_x - start_x, 0.25)
     self.assertEqual((start_y, end_y), (0.5, 0.5))
 
   def test_a_pass_without_any_hit_still_moves_the_cursor_and_transfers_nothing(self):
-    self.assertEqual(self.cursor.finish(0.125), 0.0)
-    self.assertAlmostEqual(self.cursor.x, 0.875)
+    self.assertEqual(self.cursor.finish(1), 0.0)
+    self.assertAlmostEqual(self.cursor.x, 1.0)
 
-  def test_a_negative_distance_is_refused_before_anything_is_read(self):
+  def test_the_move_is_proportional_to_the_elapsed_ticks(self):
+    cursor = make_cursor(0.0, 0.5, 1.0, 0.0, step=0.125)
+    cursor.finish(2)
+    self.assertAlmostEqual(cursor.x, 0.25)
+
+  def test_a_negative_elapsed_time_is_refused_before_anything_is_read(self):
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.run_pass()
     with self.assertRaises(ValueError):
-      self.cursor.finish(-0.1)
+      self.cursor.finish(-1)
     self.assertEqual(self.target.perceptions, {})
     self.assertEqual(len(self.cursor.hits), 1)
 
@@ -379,12 +386,12 @@ class AttractionTest(unittest.TestCase):
   def setUp(self):
     self.source = Plane({"uid": "A", "peak": 10.0})
 
-  def turned(self, perceptions, attraction=1.0, distance_power=2.0, direction=(1.0, 0.0)):
-    cursor = make_cursor(0.5, 0.5, *direction, self.source, attraction=attraction, distance_power=distance_power)
+  def turned(self, perceptions, attraction=1.0, distance_power=2.0, direction=(1.0, 0.0), elapsed=1):
+    cursor = make_cursor(0.5, 0.5, *direction, self.source, attraction=attraction, distance_power=distance_power, step=STILL)
     for x, y, energy in perceptions:
       self.source.receive(f"p{x}-{y}", x, y, energy)
     self.source.visit(10, cursor.on_visit)
-    cursor.finish(0.0)
+    cursor.finish(elapsed)
     return cursor
 
   def test_a_perception_turns_the_direction_toward_itself(self):
@@ -415,19 +422,19 @@ class AttractionTest(unittest.TestCase):
     self.assertAlmostEqual(near.dy, far.dy)
 
   def test_a_perception_that_is_blocked_for_reading_exerts_no_attraction(self):
-    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, attraction=1.0, cooldown=5)
+    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, attraction=1.0, cooldown=5, step=STILL)
     self.source.receive("p", 0.5, 0.75, 0.0625)
     self.source.perceptions[("p", 0.5, 0.75)].read = True
     self.source.visit(10, cursor.on_visit)
-    cursor.finish(0.0)
+    cursor.finish(1)
     self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
 
   def test_a_perception_attracts_again_once_its_cooldown_is_over(self):
-    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, attraction=1.0, cooldown=0)
+    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, attraction=1.0, cooldown=0, step=STILL)
     self.source.receive("p", 0.5, 0.75, 0.0625)
     self.source.perceptions[("p", 0.5, 0.75)].read = True
     self.source.visit(10, cursor.on_visit)
-    cursor.finish(0.0)
+    cursor.finish(1)
     self.assertGreater(cursor.dy, 0.0)
 
   def test_a_perception_that_contains_the_cursor_exerts_nothing(self):
@@ -447,10 +454,16 @@ class AttractionTest(unittest.TestCase):
     cursor = self.turned([(0.5, 0.75, 0.0625), (0.75, 0.5, 0.125)])
     self.assertAlmostEqual(math.hypot(cursor.dx, cursor.dy), 1.0)
 
+  def test_the_effect_of_the_attraction_is_proportional_to_the_elapsed_ticks(self):
+    once = self.turned([(0.5, 0.75, 0.0625)], elapsed=1)
+    self.source = Plane({"uid": "A", "peak": 10.0})
+    twice = self.turned([(0.5, 0.75, 0.0625)], elapsed=2)
+    self.assertAlmostEqual(twice.dy / twice.dx, 2 * once.dy / once.dx)
+
   def test_the_force_is_cleared_once_it_has_been_applied(self):
     cursor = self.turned([(0.5, 0.75, 0.0625)])
     direction = (cursor.dx, cursor.dy)
-    cursor.finish(0.0)
+    cursor.finish(1)
     self.assertAlmostEqual(cursor.dx, direction[0])
     self.assertAlmostEqual(cursor.dy, direction[1])
 
@@ -459,13 +472,13 @@ class DeflectionTest(unittest.TestCase):
     self.source = Plane({"uid": "A", "peak": 0.25})
 
   def read(self, energy=0.125, impact=1.0, others=()):
-    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, impact=impact)
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, impact=impact, step=STILL)
     cursor.advance(0.5)
     self.source.receive("hit", 0.5, 0.5, energy)
     for name, x, y, other_energy in others:
       self.source.receive(name, x, y, other_energy)
     self.source.visit(10, cursor.on_visit)
-    cursor.finish(0.0)
+    cursor.finish(1)
     return cursor
 
   def test_the_direction_is_deflected_toward_the_tangent_of_the_perception(self):
@@ -503,29 +516,85 @@ class DeflectionTest(unittest.TestCase):
     self.assertAlmostEqual(cursor.y, 0.5, places=5)
 
   def test_a_cursor_at_the_center_of_the_perception_is_placed_opposite_to_its_direction(self):
-    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source)
+    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, step=STILL)
     self.source.receive("hit", 0.5, 0.5, 0.125)
     cursor.hits.append(self.source.perceptions[("hit", 0.5, 0.5)])
-    cursor.finish(0.0)
+    cursor.finish(1)
     self.assertAlmostEqual(cursor.x, 0.4375, places=5)
     self.assertAlmostEqual(cursor.y, 0.5, places=5)
 
   def test_the_placement_stays_in_the_plane(self):
-    cursor = make_cursor(0.99, 0.5, 1.0, 0.0, self.source)
+    cursor = make_cursor(0.99, 0.5, 1.0, 0.0, self.source, step=STILL)
     self.source.receive("hit", 0.9375, 0.5, 0.125)
     cursor.hits.append(self.source.perceptions[("hit", 0.9375, 0.5)])
-    cursor.finish(0.0)
-    self.assertEqual(cursor.x, 1.0)
+    cursor.finish(1)
+    self.assertAlmostEqual(cursor.x, 1.0, places=5)
 
   def test_a_perception_removed_before_the_end_of_the_pass_deflects_nothing(self):
-    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, impact=1.0)
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, impact=1.0, step=STILL)
     cursor.advance(0.5)
     self.source.receive("hit", 0.5, 0.5, 0.125)
     self.source.visit(10, cursor.on_visit)
     self.source.remove(cursor.hits[0])
-    cursor.finish(0.0)
+    cursor.finish(1)
     self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
     self.assertAlmostEqual(cursor.x, 0.75)
+
+class BudgetRunTest(unittest.TestCase):
+  def setUp(self):
+    self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 2}})
+
+  def plane(self, uid, count):
+    plane = Plane({"uid": uid, "peak": 10.0})
+    for index in range(count):
+      plane.receive(f"far{index}", 0.1 * index, 0.9, 0.0625)
+    return plane
+
+  def started(self, uid, count):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.plane(uid, count), step=0.125)
+    cursor.start(self.scheduler)
+    return cursor
+
+  def ticks(self, count):
+    self.scheduler.advance(float(count))
+
+  def test_a_pass_cut_by_the_budget_moves_the_cursor_only_when_it_is_complete(self):
+    cursor = self.started("A", 4)
+    self.ticks(1)
+    self.assertEqual(cursor.x, 0.25)
+    self.ticks(1)
+    self.assertAlmostEqual(cursor.x, 0.5)
+
+  def test_a_pass_that_uses_exactly_the_budget_completes_in_one_tick(self):
+    cursor = self.started("A", 2)
+    self.ticks(3)
+    self.assertAlmostEqual(cursor.x, 0.625)
+
+  def test_two_cursors_share_the_budget_and_take_turns(self):
+    first = self.started("A", 2)
+    second = self.started("B", 2)
+    self.ticks(1)
+    self.assertAlmostEqual(first.x, 0.375)
+    self.assertEqual(second.x, 0.25)
+    self.ticks(1)
+    self.assertAlmostEqual(first.x, 0.375)
+    self.assertAlmostEqual(second.x, 0.5)
+    self.ticks(1)
+    self.assertAlmostEqual(first.x, 0.625)
+
+  def test_a_placement_notes_the_tick_of_the_move(self):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
+    cursor.scheduler = self.scheduler
+    self.ticks(4)
+    cursor.place(0.5, 0.5, 1.0, 0.0)
+    self.assertEqual(cursor.moved_tick, 4)
+
+  def test_the_end_of_a_pass_notes_the_tick_of_the_move(self):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
+    cursor.scheduler = self.scheduler
+    self.ticks(5)
+    cursor.finish(1)
+    self.assertEqual(cursor.moved_tick, 5)
 
 class Script:
   def __init__(self, *values):

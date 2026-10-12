@@ -19,6 +19,7 @@ class Cursor:
     self.impact = config["impact"]
     self.cycle = config["cycle"]
     self.cycle_start = 0
+    self.moved_tick = 0
     self.scheduler = None
     self.place(0.5, 0.5, 1.0, 0.0)
 
@@ -36,6 +37,7 @@ class Cursor:
     self.force_y = 0.0
     self.segment = None
     self.hits = []
+    self.moved_tick = self.now
 
   def restart(self):
     x = self.generator.random()
@@ -117,18 +119,18 @@ class Cursor:
     self.x = max(0.0, min(1.0, perception.x + nx * radius))
     self.y = max(0.0, min(1.0, perception.y + ny * radius))
 
-  def turn(self):
-    dx = self.dx + self.attraction * self.force_x
-    dy = self.dy + self.attraction * self.force_y
+  def turn(self, elapsed):
+    dx = self.dx + self.attraction * self.force_x * elapsed
+    dy = self.dy + self.attraction * self.force_y * elapsed
     length = math.hypot(dx, dy)
     if length > 0:
       self.dx, self.dy = dx / length, dy / length
     self.force_x = 0.0
     self.force_y = 0.0
 
-  def finish(self, distance):
-    if distance < 0:
-      raise ValueError("distance: must not be negative")
+  def finish(self, elapsed):
+    if elapsed < 0:
+      raise ValueError("elapsed: must not be negative")
     transferred = 0.0
     for perception in self.hits:
       if self.source.perceptions.get(perception.key) is not perception:
@@ -139,8 +141,9 @@ class Cursor:
       perception.read_tick = self.now
       self.deflect(perception, before)
     self.hits = []
-    self.turn()
-    self.advance(distance)
+    self.turn(elapsed)
+    self.advance(self.step * elapsed)
+    self.moved_tick = self.now
     if self.now - self.cycle_start >= self.cycle:
       self.restart()
     return transferred
@@ -148,12 +151,13 @@ class Cursor:
   def start(self, scheduler):
     self.scheduler = scheduler
     self.cycle_start = scheduler.ticks
+    self.moved_tick = scheduler.ticks
     scheduler.submit(self.run)
 
   def run(self, units):
-    used, finished = self.source.visit(math.inf, self.on_visit)
+    used, finished = self.source.visit(units, self.on_visit)
     if finished:
-      self.finish(self.step)
+      self.finish(max(1, self.now - self.moved_tick))
     self.scheduler.submit(self.run)
     return used
 
