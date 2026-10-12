@@ -4,22 +4,23 @@ import unittest
 import support
 from scheduler import Scheduler
 from cursor import Cursor
+from generator import Generator
 from perception import Perception
 from plane import Plane
 
-def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0):
-  return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact}
+def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0, cycle=1000):
+  return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact, "cycle": cycle}
 
-def make_cursor(x, y, dx, dy, source=None, target=None, **settings):
+def make_cursor(x, y, dx, dy, source=None, target=None, generator=None, **settings):
   source = source if source is not None else Plane({"uid": "A", "peak": 10.0})
   target = target if target is not None else Plane({"uid": "C", "peak": 10.0})
-  cursor = Cursor(make_config(**settings), source, target)
+  cursor = Cursor(make_config(**settings), source, target, generator if generator is not None else Generator(1))
   cursor.place(x, y, dx, dy)
   return cursor
 
 class PlacementTest(unittest.TestCase):
   def test_a_new_cursor_is_at_the_center_and_heads_right(self):
-    cursor = Cursor(make_config(), Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}))
+    cursor = Cursor(make_config(), Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}), Generator(1))
     self.assertEqual((cursor.x, cursor.y, cursor.dx, cursor.dy), (0.5, 0.5, 1.0, 0.0))
 
   def test_the_direction_is_normalized(self):
@@ -61,7 +62,7 @@ class PlacementTest(unittest.TestCase):
 class ConfigTest(unittest.TestCase):
   def rejected(self, config):
     with self.assertRaises(ValueError) as caught:
-      Cursor(config, Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}))
+      Cursor(config, Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}), Generator(1))
     return str(caught.exception)
 
   def test_a_config_must_be_an_object(self):
@@ -93,8 +94,14 @@ class ConfigTest(unittest.TestCase):
       config["cooldown"] = value
       self.assertIn("config.cooldown", self.rejected(config), repr(value))
 
+  def test_the_cycle_must_be_an_integer_of_at_least_one(self):
+    for value in (0, -1, 1.5, "3", True, None):
+      config = make_config()
+      config["cycle"] = value
+      self.assertIn("config.cycle", self.rejected(config), repr(value))
+
   def test_zero_is_accepted_for_the_settings_that_allow_it(self):
-    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0), Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}))
+    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0), Plane({"uid": "A", "peak": 1.0}), Plane({"uid": "C", "peak": 1.0}), Generator(1))
 
 class AdvanceTest(unittest.TestCase):
   def test_the_cursor_moves_along_its_direction_by_the_distance(self):
@@ -514,6 +521,74 @@ class DeflectionTest(unittest.TestCase):
     cursor.finish(0.0)
     self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
     self.assertAlmostEqual(cursor.x, 0.75)
+
+class Script:
+  def __init__(self, *values):
+    self.values = list(values)
+
+  def random(self):
+    return self.values.pop(0)
+
+class CycleTest(unittest.TestCase):
+  def setUp(self):
+    self.scheduler = Scheduler({"clock": {"tick": 1.0}})
+
+  def cursor(self, generator, cycle=3):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, generator=generator, cycle=cycle)
+    cursor.scheduler = self.scheduler
+    return cursor
+
+  def test_a_restart_places_the_cursor_inside_the_plane_with_a_unit_direction(self):
+    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, generator=Generator(4))
+    for _ in range(20):
+      cursor.restart()
+      self.assertTrue(0.0 <= cursor.x <= 1.0)
+      self.assertTrue(0.0 <= cursor.y <= 1.0)
+      self.assertAlmostEqual(math.hypot(cursor.dx, cursor.dy), 1.0)
+
+  def test_two_cursors_with_the_same_seed_restart_at_the_same_place(self):
+    first = make_cursor(0.5, 0.5, 1.0, 0.0, generator=Generator(5))
+    second = make_cursor(0.1, 0.1, 0.0, 1.0, generator=Generator(5))
+    first.restart()
+    second.restart()
+    self.assertEqual((first.x, first.y, first.dx, first.dy), (second.x, second.y, second.dx, second.dy))
+
+  def test_a_restart_draws_the_abscissa_then_the_ordinate_then_the_angle(self):
+    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, generator=Script(0.25, 0.75, 0.25))
+    cursor.restart()
+    self.assertEqual((cursor.x, cursor.y), (0.25, 0.75))
+    self.assertAlmostEqual(cursor.dx, 0.0)
+    self.assertAlmostEqual(cursor.dy, 1.0)
+
+  def test_a_cursor_restarts_at_the_end_of_its_cycle(self):
+    cursor = self.cursor(Script(0.25, 0.75, 0.0))
+    self.scheduler.advance(3.0)
+    cursor.finish(0.0)
+    self.assertEqual((cursor.x, cursor.y), (0.25, 0.75))
+    self.assertIsNone(cursor.segment)
+
+  def test_a_cursor_does_not_restart_before_the_end_of_its_cycle(self):
+    cursor = self.cursor(Script())
+    self.scheduler.advance(2.0)
+    cursor.finish(0.0)
+    self.assertEqual((cursor.x, cursor.y), (0.25, 0.5))
+
+  def test_the_next_cycle_is_counted_from_the_restart(self):
+    cursor = self.cursor(Script(0.25, 0.75, 0.0, 0.5, 0.5, 0.0))
+    self.scheduler.advance(3.0)
+    cursor.finish(0.0)
+    self.scheduler.advance(2.0)
+    cursor.finish(0.0)
+    self.assertEqual((cursor.x, cursor.y), (0.25, 0.75))
+    self.scheduler.advance(1.0)
+    cursor.finish(0.0)
+    self.assertEqual((cursor.x, cursor.y), (0.5, 0.5))
+
+  def test_starting_a_cursor_records_the_tick_where_its_cycle_begins(self):
+    self.scheduler.advance(4.0)
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
+    cursor.start(self.scheduler)
+    self.assertEqual(cursor.cycle_start, 4)
 
 if __name__ == "__main__":
   unittest.main()

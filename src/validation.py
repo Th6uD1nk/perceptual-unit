@@ -56,8 +56,9 @@ def validate_cursor(config):
     value = config[key]
     if isinstance(value, bool) or not isinstance(value, (int, float)) or (value <= 0 if strict else value < 0):
       fail(f"config.{key}", "must be a number greater than 0" if strict else "must be a number of at least 0")
-  if "cooldown" not in config:
-    fail("config.cooldown", "missing")
-  cooldown = config["cooldown"]
-  if isinstance(cooldown, bool) or not isinstance(cooldown, int) or cooldown < 0:
-    fail("config.cooldown", "must be an integer of at least 0")
+  for key, minimum in (("cooldown", 0), ("cycle", 1)):
+    if key not in config:
+      fail(f"config.{key}", "missing")
+    value = config[key]
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+      fail(f"config.{key}", f"must be an integer of at least {minimum}")

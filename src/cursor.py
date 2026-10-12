@@ -6,16 +6,19 @@ EPSILON = 1e-9
 EDGE_OFFSET = 1e-6
 
 class Cursor:
-  def __init__(self, config, source, target):
+  def __init__(self, config, source, target, generator):
     validate_cursor(config)
     self.source = source
     self.target = target
+    self.generator = generator
     self.energy = config["energy"]
     self.step = config["step"]
     self.cooldown = config["cooldown"]
     self.attraction = config["attraction"]
     self.distance_power = config["distance_power"]
     self.impact = config["impact"]
+    self.cycle = config["cycle"]
+    self.cycle_start = 0
     self.scheduler = None
     self.place(0.5, 0.5, 1.0, 0.0)
 
@@ -33,6 +36,13 @@ class Cursor:
     self.force_y = 0.0
     self.segment = None
     self.hits = []
+
+  def restart(self):
+    x = self.generator.random()
+    y = self.generator.random()
+    angle = self.generator.random() * math.tau
+    self.place(x, y, math.cos(angle), math.sin(angle))
+    self.cycle_start = self.now
 
   def advance(self, distance):
     if distance < 0:
@@ -131,10 +141,13 @@ class Cursor:
     self.hits = []
     self.turn()
     self.advance(distance)
+    if self.now - self.cycle_start >= self.cycle:
+      self.restart()
     return transferred
 
   def start(self, scheduler):
     self.scheduler = scheduler
+    self.cycle_start = scheduler.ticks
     scheduler.submit(self.run)
 
   def run(self):
