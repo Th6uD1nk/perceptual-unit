@@ -12,3 +12,6 @@ class Perception:
   @property
   def key(self):
     return (self.hash, self.x, self.y)
+
+  def state(self):
+    return {"hash": self.hash, "x": self.x, "y": self.y, "energy": self.energy, "read": self.read}

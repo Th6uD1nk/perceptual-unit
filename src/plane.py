@@ -58,3 +58,6 @@ class Plane:
     if finished:
       self.visit_queue = None
     return used, finished
+
+  def state(self):
+    return {"uid": self.uid, "peak": self.peak, "perceptions": [perception.state() for perception in self.perceptions.values()]}

@@ -1,4 +1,5 @@
 import copy
+import json
 import unittest
 
 import support
@@ -55,6 +56,41 @@ class SchedulerTest(unittest.TestCase):
     second = Unit(CONFIG)
     first.update(8.0)
     self.assertEqual(second.ticks, 0)
+
+class StateTest(unittest.TestCase):
+  def test_the_state_gives_the_ticks_and_the_planes_in_the_order_of_the_config(self):
+    unit = Unit(CONFIG)
+    unit.update(8.0)
+    state = unit.state()
+    self.assertEqual(state["ticks"], 2)
+    self.assertEqual([plane["uid"] for plane in state["planes"]], ["A", "C", "D"])
+
+  def test_the_state_holds_the_perceptions_of_each_plane(self):
+    unit = Unit(CONFIG)
+    unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
+    unit.planes["D"].receive("cat", 0.5, 0.5, 0.5)
+    planes = {plane["uid"]: plane for plane in unit.state()["planes"]}
+    self.assertEqual([entry["hash"] for entry in planes["A"]["perceptions"]], ["house"])
+    self.assertEqual(planes["C"]["perceptions"], [])
+    self.assertEqual([entry["hash"] for entry in planes["D"]["perceptions"]], ["cat"])
+
+  def test_the_state_can_be_written_as_json(self):
+    unit = Unit(CONFIG)
+    unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
+    self.assertEqual(json.loads(json.dumps(unit.state())), unit.state())
+
+  def test_reading_the_state_changes_nothing_and_gives_the_same_result(self):
+    unit = Unit(CONFIG)
+    unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
+    self.assertEqual(unit.state(), unit.state())
+
+  def test_changing_the_state_does_not_change_the_unit(self):
+    unit = Unit(CONFIG)
+    unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
+    unit.state()["planes"][0]["perceptions"].clear()
+    unit.state()["planes"][0]["peak"] = 99.0
+    self.assertEqual(len(unit.planes["A"].perceptions), 1)
+    self.assertEqual(unit.planes["A"].peak, 4.0)
 
 class RejectionTest(unittest.TestCase):
   def rejected(self, config):

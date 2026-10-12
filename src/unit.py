@@ -17,3 +17,6 @@ class Unit:
 
   def update(self, dt_ms):
     return self.scheduler.advance(dt_ms)
+
+  def state(self):
+    return {"ticks": self.ticks, "planes": [plane.state() for plane in self.planes.values()]}

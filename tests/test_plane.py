@@ -270,6 +270,24 @@ class VisitTest(unittest.TestCase):
   def test_the_visit_does_not_need_a_callback(self):
     self.assertEqual(self.plane.visit(10), (3, True))
 
+class StateTest(unittest.TestCase):
+  def test_the_state_of_an_empty_plane_has_no_perception(self):
+    self.assertEqual(make_plane("A", peak=4.0).state(), {"uid": "A", "peak": 4.0, "perceptions": []})
+
+  def test_the_state_lists_the_perceptions_in_the_order_of_their_arrival(self):
+    plane = make_plane()
+    plane.receive("house", 0.25, 0.75, 1.0)
+    plane.receive("cat", 0.5, 0.5, 2.0)
+    perceptions = plane.state()["perceptions"]
+    self.assertEqual([entry["hash"] for entry in perceptions], ["house", "cat"])
+    self.assertEqual(perceptions[1], {"hash": "cat", "x": 0.5, "y": 0.5, "energy": 2.0, "read": False})
+
+  def test_a_perception_that_left_the_plane_is_no_longer_in_the_state(self):
+    plane = make_plane()
+    plane.receive(*KEY, 1.0)
+    plane.take(plane.perceptions[KEY], 1.0)
+    self.assertEqual(plane.state()["perceptions"], [])
+
 class InvariantTest(unittest.TestCase):
   def test_every_perception_on_a_plane_has_energy(self):
     plane = make_plane()
