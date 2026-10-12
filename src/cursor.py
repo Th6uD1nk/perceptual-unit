@@ -1,14 +1,17 @@
 import math
 
+EPSILON = 1e-9
+EDGE_OFFSET = 1e-6
+
 class Cursor:
-  def __init__(self, x, y, dx, dy, source, target, energy, step, cooldown, attraction, distance_power):
+  def __init__(self, x, y, dx, dy, source, target, energy, step, cooldown, attraction, distance_power, impact):
     if not (0 <= x <= 1 and 0 <= y <= 1):
       raise ValueError("position: must be inside the plane")
     if energy <= 0:
       raise ValueError("energy: must be greater than 0")
     if step <= 0:
       raise ValueError("step: must be greater than 0")
-    for name, value in (("attraction", attraction), ("distance_power", distance_power)):
+    for name, value in (("attraction", attraction), ("distance_power", distance_power), ("impact", impact)):
       if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
         raise ValueError(f"{name}: must be a number of at least 0")
     if isinstance(cooldown, bool) or not isinstance(cooldown, int) or cooldown < 0:
@@ -27,6 +30,7 @@ class Cursor:
     self.cooldown = cooldown
     self.attraction = attraction
     self.distance_power = distance_power
+    self.impact = impact
     self.force_x = 0.0
     self.force_y = 0.0
     self.scheduler = None
@@ -80,6 +84,32 @@ class Cursor:
     self.force_x += pull * dx / distance
     self.force_y += pull * dy / distance
 
+  def deflect(self, perception, energy_before):
+    nx, ny = self.x - perception.x, self.y - perception.y
+    length = math.hypot(nx, ny)
+    if length == 0:
+      nx, ny = -self.dx, -self.dy
+    else:
+      nx, ny = nx / length, ny / length
+    tx, ty = -ny, nx
+    side = tx * self.force_x + ty * self.force_y
+    if abs(side) < EPSILON:
+      side = tx * self.dx + ty * self.dy
+    if side < 0:
+      tx, ty = -tx, -ty
+    share = min(1.0, self.impact * energy_before / self.source.peak)
+    dx = (1 - share) * self.dx + share * tx
+    dy = (1 - share) * self.dy + share * ty
+    length = math.hypot(dx, dy)
+    if length > 0:
+      self.dx, self.dy = dx / length, dy / length
+    else:
+      self.dx, self.dy = tx, ty
+    on_plane = self.source.perceptions.get(perception.key) is perception
+    radius = (perception.energy if on_plane else 0.0) + EDGE_OFFSET
+    self.x = max(0.0, min(1.0, perception.x + nx * radius))
+    self.y = max(0.0, min(1.0, perception.y + ny * radius))
+
   def turn(self):
     dx = self.dx + self.attraction * self.force_x
     dy = self.dy + self.attraction * self.force_y
@@ -94,9 +124,13 @@ class Cursor:
       raise ValueError("distance: must not be negative")
     transferred = 0.0
     for perception in self.hits:
+      if self.source.perceptions.get(perception.key) is not perception:
+        continue
+      before = perception.energy
       transferred += self.source.transfer(perception, self.target, self.energy)
       perception.read = True
       perception.read_tick = self.now
+      self.deflect(perception, before)
     self.hits = []
     self.turn()
     self.advance(distance)

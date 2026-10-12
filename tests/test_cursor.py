@@ -7,10 +7,10 @@ from cursor import Cursor
 from perception import Perception
 from plane import Plane
 
-def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0):
+def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0):
   source = source if source is not None else Plane({"uid": "A", "peak": 10.0})
   target = target if target is not None else Plane({"uid": "C", "peak": 10.0})
-  return Cursor(x, y, dx, dy, source, target, energy, step, cooldown, attraction, distance_power)
+  return Cursor(x, y, dx, dy, source, target, energy, step, cooldown, attraction, distance_power, impact)
 
 class CreationTest(unittest.TestCase):
   def test_the_direction_is_normalized(self):
@@ -31,27 +31,33 @@ class CreationTest(unittest.TestCase):
     plane = Plane({"uid": "A", "peak": 1.0})
     for energy in (0, -0.5):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy, 0.25, 0, 0.0, 2.0)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy, 0.25, 0, 0.0, 2.0, 0.0)
 
   def test_a_step_that_is_not_positive_is_refused(self):
     plane = Plane({"uid": "A", "peak": 1.0})
     for step in (0, -0.25):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, step, 0, 0.0, 2.0)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, step, 0, 0.0, 2.0, 0.0)
 
   def test_a_cooldown_that_is_not_a_count_of_ticks_is_refused(self):
     plane = Plane({"uid": "A", "peak": 1.0})
     for cooldown in (-1, 1.5, "2", True, None):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, cooldown, 0.0, 2.0)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, cooldown, 0.0, 2.0, 0.0)
+
+  def test_an_impact_below_zero_is_refused(self):
+    plane = Plane({"uid": "A", "peak": 1.0})
+    for value in (-1, "1", None, True):
+      with self.assertRaises(ValueError):
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, 0.0, 2.0, value)
 
   def test_an_attraction_or_a_distance_power_below_zero_is_refused(self):
     plane = Plane({"uid": "A", "peak": 1.0})
     for value in (-1, "1", None, True):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, value, 2.0)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, value, 2.0, 0.0)
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, 0.0, value)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, 0.0, value, 0.0)
 
   def test_a_position_on_the_edge_is_accepted(self):
     make_cursor(0.0, 1.0, 1.0, 0.0)
@@ -223,7 +229,9 @@ class FinishTest(unittest.TestCase):
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.run_pass()
     self.cursor.finish(0.125)
-    self.assertEqual(self.cursor.segment, (0.75, 0.5, 0.875, 0.5))
+    start_x, start_y, end_x, end_y = self.cursor.segment
+    self.assertAlmostEqual(end_x - start_x, 0.125)
+    self.assertEqual((start_y, end_y), (0.5, 0.5))
 
   def test_a_pass_without_any_hit_still_moves_the_cursor_and_transfers_nothing(self):
     self.assertEqual(self.cursor.finish(0.125), 0.0)
@@ -402,6 +410,79 @@ class AttractionTest(unittest.TestCase):
     cursor.finish(0.0)
     self.assertAlmostEqual(cursor.dx, direction[0])
     self.assertAlmostEqual(cursor.dy, direction[1])
+
+class DeflectionTest(unittest.TestCase):
+  def setUp(self):
+    self.source = Plane({"uid": "A", "peak": 0.25})
+
+  def read(self, energy=0.125, impact=1.0, others=()):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, impact=impact)
+    cursor.advance(0.5)
+    self.source.receive("hit", 0.5, 0.5, energy)
+    for name, x, y, other_energy in others:
+      self.source.receive(name, x, y, other_energy)
+    self.source.visit(10, cursor.on_visit)
+    cursor.finish(0.0)
+    return cursor
+
+  def test_the_direction_is_deflected_toward_the_tangent_of_the_perception(self):
+    cursor = self.read()
+    self.assertAlmostEqual(cursor.dx, math.sqrt(0.5))
+    self.assertAlmostEqual(cursor.dy, math.sqrt(0.5))
+
+  def test_an_impact_of_zero_does_not_deflect(self):
+    cursor = self.read(impact=0.0)
+    self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
+
+  def test_a_perception_with_more_energy_deflects_more(self):
+    weak = self.read(energy=0.0625)
+    self.source = Plane({"uid": "A", "peak": 0.25})
+    strong = self.read(energy=0.125)
+    self.assertGreater(strong.dy, weak.dy)
+
+  def test_the_deflection_is_capped_at_the_tangent(self):
+    cursor = self.read(impact=100.0)
+    self.assertAlmostEqual(cursor.dx, 0.0)
+    self.assertAlmostEqual(cursor.dy, 1.0)
+
+  def test_the_side_of_the_tangent_follows_the_attraction(self):
+    cursor = self.read(others=[("below", 0.75, 0.25, 0.0625)])
+    self.assertLess(cursor.dy, 0.0)
+
+  def test_the_cursor_is_placed_on_the_edge_of_what_is_left_of_the_perception(self):
+    cursor = self.read()
+    self.assertAlmostEqual(cursor.x, 0.5625, places=5)
+    self.assertAlmostEqual(cursor.y, 0.5, places=5)
+
+  def test_the_cursor_is_placed_at_the_center_of_a_perception_emptied_by_the_read(self):
+    cursor = self.read(energy=0.03125)
+    self.assertAlmostEqual(cursor.x, 0.5, places=5)
+    self.assertAlmostEqual(cursor.y, 0.5, places=5)
+
+  def test_a_cursor_at_the_center_of_the_perception_is_placed_opposite_to_its_direction(self):
+    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source)
+    self.source.receive("hit", 0.5, 0.5, 0.125)
+    cursor.hits.append(self.source.perceptions[("hit", 0.5, 0.5)])
+    cursor.finish(0.0)
+    self.assertAlmostEqual(cursor.x, 0.4375, places=5)
+    self.assertAlmostEqual(cursor.y, 0.5, places=5)
+
+  def test_the_placement_stays_in_the_plane(self):
+    cursor = make_cursor(0.99, 0.5, 1.0, 0.0, self.source)
+    self.source.receive("hit", 0.9375, 0.5, 0.125)
+    cursor.hits.append(self.source.perceptions[("hit", 0.9375, 0.5)])
+    cursor.finish(0.0)
+    self.assertEqual(cursor.x, 1.0)
+
+  def test_a_perception_removed_before_the_end_of_the_pass_deflects_nothing(self):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, impact=1.0)
+    cursor.advance(0.5)
+    self.source.receive("hit", 0.5, 0.5, 0.125)
+    self.source.visit(10, cursor.on_visit)
+    self.source.remove(cursor.hits[0])
+    cursor.finish(0.0)
+    self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
+    self.assertAlmostEqual(cursor.x, 0.75)
 
 if __name__ == "__main__":
   unittest.main()
