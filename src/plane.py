@@ -1,3 +1,5 @@
+import collections
+
 from perception import Perception
 
 class Plane:
@@ -5,6 +7,7 @@ class Plane:
     self.uid = config["uid"]
     self.peak = config["peak"]
     self.perceptions = {}
+    self.visit_queue = None
 
   def receive(self, hash_, x, y, amount):
     key = (hash_, x, y)
@@ -39,3 +42,19 @@ class Plane:
     offered = min(amount, perception.energy)
     accepted = target.receive(perception.hash, perception.x, perception.y, offered)
     return self.take(perception, accepted)
+
+  def visit(self, units, on_visit=None):
+    if units <= 0:
+      return 0, False
+    if self.visit_queue is None:
+      self.visit_queue = collections.deque(self.perceptions.values())
+    used = 0
+    while self.visit_queue and used < units:
+      perception = self.visit_queue.popleft()
+      used += 1
+      if self.perceptions.get(perception.key) is perception and on_visit is not None:
+        on_visit(perception)
+    finished = not self.visit_queue
+    if finished:
+      self.visit_queue = None
+    return used, finished

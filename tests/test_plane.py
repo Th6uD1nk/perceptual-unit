@@ -228,6 +228,61 @@ class TransferTest(unittest.TestCase):
     self.assertEqual(self.target.perceptions, {})
     self.assertEqual(stranger.energy, 3.0)
 
+class VisitTest(unittest.TestCase):
+  def setUp(self):
+    self.plane = make_plane()
+    for index in range(3):
+      self.plane.receive(f"word{index}", 0.1 * index, 0.5, 1.0)
+    self.seen = []
+
+  def visit(self, units):
+    return self.plane.visit(units, lambda perception: self.seen.append(perception.hash))
+
+  def test_a_pass_visits_each_perception_once_and_ends(self):
+    self.assertEqual(self.visit(10), (3, True))
+    self.assertEqual(self.seen, ["word0", "word1", "word2"])
+
+  def test_a_pass_visits_at_most_the_given_units(self):
+    self.assertEqual(self.visit(2), (2, False))
+    self.assertEqual(self.seen, ["word0", "word1"])
+
+  def test_a_cut_pass_resumes_where_it_stopped(self):
+    self.assertEqual(self.visit(2), (2, False))
+    self.assertEqual(self.visit(2), (1, True))
+    self.assertEqual(self.seen, ["word0", "word1", "word2"])
+
+  def test_a_new_pass_starts_again_from_the_first_perception(self):
+    self.visit(10)
+    self.visit(10)
+    self.assertEqual(self.seen, ["word0", "word1", "word2"] * 2)
+
+  def test_a_pass_over_an_empty_plane_ends_at_once(self):
+    self.assertEqual(make_plane().visit(5), (0, True))
+
+  def test_zero_or_negative_units_visit_nothing_and_start_no_pass(self):
+    self.assertEqual(self.visit(0), (0, False))
+    self.assertEqual(self.visit(-1), (0, False))
+    self.assertEqual(self.seen, [])
+    self.visit(10)
+    self.assertEqual(self.seen, ["word0", "word1", "word2"])
+
+  def test_a_perception_removed_during_a_pass_is_skipped_but_costs_a_unit(self):
+    self.visit(1)
+    self.plane.take(self.plane.perceptions[("word1", 0.1, 0.5)], 1.0)
+    self.assertEqual(self.visit(10), (2, True))
+    self.assertEqual(self.seen, ["word0", "word2"])
+
+  def test_a_perception_born_during_a_pass_waits_for_the_next_pass(self):
+    self.visit(1)
+    self.plane.receive("late", 0.9, 0.5, 1.0)
+    self.visit(10)
+    self.assertEqual(self.seen, ["word0", "word1", "word2"])
+    self.visit(10)
+    self.assertEqual(self.seen[3:], ["word0", "word1", "word2", "late"])
+
+  def test_the_visit_does_not_need_a_callback(self):
+    self.assertEqual(self.plane.visit(10), (3, True))
+
 class InvariantTest(unittest.TestCase):
   def test_every_perception_on_a_plane_has_energy(self):
     plane = make_plane()
