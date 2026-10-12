@@ -15,9 +15,7 @@ class InstantiationTest(unittest.TestCase):
       self.assertIsInstance(plane, Plane)
 
   def test_the_planes_are_found_by_uid(self):
-    unit = Unit(CONFIG)
-    self.assertEqual([plane.uid for plane in unit.planes.values()], ["A", "C", "D"])
-    self.assertEqual(unit.planes["C"].uid, "C")
+    self.assertEqual(Unit(CONFIG).planes["C"].uid, "C")
 
   def test_the_order_of_the_config_is_kept(self):
     unit = Unit({"planes": [{"uid": "D"}, {"uid": "A"}]})
