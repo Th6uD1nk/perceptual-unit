@@ -3,6 +3,8 @@ import unittest
 
 import support
 from cursor import Cursor
+from perception import Perception
+from plane import Plane
 
 class CreationTest(unittest.TestCase):
   def test_the_direction_is_normalized(self):
@@ -83,6 +85,56 @@ class BounceTest(unittest.TestCase):
       self.assertTrue(0.0 <= cursor.x <= 1.0)
       self.assertTrue(0.0 <= cursor.y <= 1.0)
       self.assertAlmostEqual(math.hypot(cursor.dx, cursor.dy), 1.0)
+
+def perception(x, y, energy):
+  found = Perception("token", x, y)
+  found.energy = energy
+  return found
+
+def moved_cursor():
+  cursor = Cursor(0.25, 0.5, 1.0, 0.0)
+  cursor.advance(0.5)
+  return cursor
+
+class CollisionTest(unittest.TestCase):
+  def test_a_perception_on_the_path_is_touched(self):
+    self.assertTrue(moved_cursor().touches(perception(0.5, 0.5, 0.0625)))
+
+  def test_a_perception_whose_circle_only_brushes_the_segment_is_touched(self):
+    self.assertTrue(moved_cursor().touches(perception(0.5, 0.75, 0.25)))
+
+  def test_a_perception_whose_circle_stops_short_of_the_end_is_touched(self):
+    self.assertTrue(moved_cursor().touches(perception(0.875, 0.5, 0.125)))
+
+  def test_a_perception_out_of_reach_is_not_touched(self):
+    cursor = moved_cursor()
+    cases = ((0.5, 0.75, 0.125), (0.875, 0.5, 0.0625), (0.0625, 0.5, 0.0625), (0.5, 0.9, 0.125))
+    for x, y, energy in cases:
+      self.assertFalse(cursor.touches(perception(x, y, energy)), msg=repr((x, y, energy)))
+
+  def test_a_perception_that_already_contains_the_start_is_not_touched(self):
+    self.assertFalse(moved_cursor().touches(perception(0.25, 0.5, 0.125)))
+
+  def test_a_perception_without_energy_is_not_touched(self):
+    self.assertFalse(moved_cursor().touches(perception(0.5, 0.5, 0.0)))
+
+  def test_nothing_is_touched_before_the_first_move(self):
+    self.assertFalse(Cursor(0.25, 0.5, 1.0, 0.0).touches(perception(0.25, 0.5, 0.5)))
+
+  def test_nothing_is_touched_by_a_move_of_zero_distance(self):
+    cursor = Cursor(0.25, 0.5, 1.0, 0.0)
+    cursor.advance(0.0)
+    self.assertFalse(cursor.touches(perception(0.5, 0.5, 0.125)))
+
+  def test_a_visit_of_a_plane_records_only_the_perceptions_touched_in_visit_order(self):
+    plane = Plane({"uid": "A", "peak": 10.0})
+    plane.receive("far", 0.5, 0.9, 0.0625)
+    plane.receive("first", 0.375, 0.5, 0.0625)
+    plane.receive("brush", 0.5, 0.75, 0.25)
+    plane.receive("behind", 0.0625, 0.5, 0.0625)
+    cursor = moved_cursor()
+    plane.visit(10, cursor.on_visit)
+    self.assertEqual([hit.hash for hit in cursor.hits], ["first", "brush"])
 
 if __name__ == "__main__":
   unittest.main()

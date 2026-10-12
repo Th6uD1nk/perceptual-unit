@@ -12,6 +12,7 @@ class Cursor:
     self.dx = dx / length
     self.dy = dy / length
     self.segment = None
+    self.hits = []
 
   def advance(self, distance):
     if distance < 0:
@@ -29,3 +30,23 @@ class Cursor:
       elif self.y > 1:
         self.y, self.dy = 2 - self.y, -self.dy
     self.segment = (start_x, start_y, self.x, self.y)
+
+  def touches(self, perception):
+    if self.segment is None or perception.energy <= 0:
+      return False
+    start_x, start_y, end_x, end_y = self.segment
+    radius = perception.energy
+    if math.hypot(start_x - perception.x, start_y - perception.y) <= radius:
+      return False
+    return distance_to_segment(perception.x, perception.y, start_x, start_y, end_x, end_y) <= radius
+
+  def on_visit(self, perception):
+    if self.touches(perception):
+      self.hits.append(perception)
+
+def distance_to_segment(x, y, start_x, start_y, end_x, end_y):
+  dx, dy = end_x - start_x, end_y - start_y
+  length_squared = dx * dx + dy * dy
+  along = 0.0 if length_squared == 0 else ((x - start_x) * dx + (y - start_y) * dy) / length_squared
+  along = max(0.0, min(1.0, along))
+  return math.hypot(x - (start_x + along * dx), y - (start_y + along * dy))
