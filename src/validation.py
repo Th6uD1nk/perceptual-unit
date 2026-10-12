@@ -29,3 +29,17 @@ def validate_config(config):
   known = set()
   for index, entry in enumerate(planes):
     validate_plane(entry, f"config.planes[{index}]", known)
+
+def validate_clock(config):
+  if not isinstance(config, dict):
+    fail("config", "must be an object")
+  if "clock" not in config:
+    fail("config.clock", "missing")
+  clock = config["clock"]
+  if not isinstance(clock, dict):
+    fail("config.clock", "must be an object")
+  if "tick" not in clock:
+    fail("config.clock.tick", "missing")
+  tick = clock["tick"]
+  if isinstance(tick, bool) or not isinstance(tick, (int, float)) or tick <= 0:
+    fail("config.clock.tick", "must be a number greater than 0")
