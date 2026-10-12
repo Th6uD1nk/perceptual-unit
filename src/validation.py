@@ -31,21 +31,26 @@ def validate_config(config):
   known = set()
   for index, entry in enumerate(planes):
     validate_plane(entry, f"config.planes[{index}]", known)
-  validate_clock(config)
+  validate_scheduler(config)
 
-def validate_clock(config):
+def validate_scheduler(config):
   if not isinstance(config, dict):
     fail("config", "must be an object")
-  if "clock" not in config:
-    fail("config.clock", "missing")
-  clock = config["clock"]
-  if not isinstance(clock, dict):
-    fail("config.clock", "must be an object")
-  if "tick" not in clock:
-    fail("config.clock.tick", "missing")
-  tick = clock["tick"]
+  if "scheduler" not in config:
+    fail("config.scheduler", "missing")
+  section = config["scheduler"]
+  if not isinstance(section, dict):
+    fail("config.scheduler", "must be an object")
+  if "tick" not in section:
+    fail("config.scheduler.tick", "missing")
+  tick = section["tick"]
   if isinstance(tick, bool) or not isinstance(tick, (int, float)) or tick < MIN_TICK_MS:
-    fail("config.clock.tick", f"must be a number of at least {MIN_TICK_MS}")
+    fail("config.scheduler.tick", f"must be a number of at least {MIN_TICK_MS}")
+  if "budget" not in section:
+    fail("config.scheduler.budget", "missing")
+  budget = section["budget"]
+  if isinstance(budget, bool) or not isinstance(budget, int) or budget < 0:
+    fail("config.scheduler.budget", "must be an integer of at least 0")
 
 def validate_cursor(config):
   if not isinstance(config, dict):

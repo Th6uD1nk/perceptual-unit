@@ -9,7 +9,7 @@ def entry(uid, peak=1.0):
   return {"uid": uid, "peak": peak}
 
 def make_config(planes, tick=4.0):
-  return {"clock": {"tick": tick}, "planes": planes}
+  return {"scheduler": {"tick": tick, "budget": 0}, "planes": planes}
 
 CONFIG = make_config([entry("A", 4.0), entry("C", 2.0), entry("D", 1.0)])
 
@@ -44,13 +44,13 @@ class InstantiationTest(unittest.TestCase):
     self.assertEqual(list(unit.planes), ["A", "C", "D"])
     self.assertEqual(unit.config, CONFIG)
 
-class ClockTest(unittest.TestCase):
+class SchedulerTest(unittest.TestCase):
   def test_an_update_advances_the_ticks_by_the_tick_duration_of_the_config(self):
     unit = Unit(make_config([entry("A")], tick=2.0))
     self.assertEqual(unit.update(10.0), 5)
     self.assertEqual(unit.ticks, 5)
 
-  def test_two_units_do_not_share_their_clock(self):
+  def test_two_units_do_not_share_their_scheduler(self):
     first = Unit(CONFIG)
     second = Unit(CONFIG)
     first.update(8.0)
@@ -72,8 +72,8 @@ class RejectionTest(unittest.TestCase):
     self.assertIn("config.planes", self.rejected({"planes": []}))
     self.assertIn("config.planes", self.rejected({"planes": {"uid": "A"}}))
 
-  def test_a_config_without_a_clock_is_refused(self):
-    self.assertIn("config.clock", self.rejected({"planes": [entry("A")]}))
+  def test_a_config_without_a_scheduler_is_refused(self):
+    self.assertIn("config.scheduler", self.rejected({"planes": [entry("A")]}))
 
   def test_a_plane_must_be_an_object(self):
     self.assertIn("config.planes[1]", self.rejected({"planes": [entry("A"), "C"]}))

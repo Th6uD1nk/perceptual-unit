@@ -285,7 +285,7 @@ class FinishTest(unittest.TestCase):
 
 class RunTest(unittest.TestCase):
   def setUp(self):
-    self.scheduler = Scheduler({"clock": {"tick": 1.0}})
+    self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0}})
     self.source = Plane({"uid": "A", "peak": 10.0})
     self.target = Plane({"uid": "C", "peak": 10.0})
     self.cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, self.target, step=0.125)
@@ -320,7 +320,7 @@ class RunTest(unittest.TestCase):
 
 class CooldownTest(unittest.TestCase):
   def setUp(self):
-    self.scheduler = Scheduler({"clock": {"tick": 1.0}})
+    self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0}})
     self.source = Plane({"uid": "A", "peak": 10.0})
     self.target = Plane({"uid": "C", "peak": 10.0})
     self.source.receive("first", 0.5, 0.5, 0.125)
@@ -536,7 +536,7 @@ class Script:
 
 class CycleTest(unittest.TestCase):
   def setUp(self):
-    self.scheduler = Scheduler({"clock": {"tick": 1.0}})
+    self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0}})
 
   def cursor(self, generator, cycle=3):
     cursor = make_cursor(0.25, 0.5, 1.0, 0.0, generator=generator, cycle=cycle)

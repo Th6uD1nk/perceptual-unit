@@ -1,14 +1,15 @@
 import collections
 import math
 
-from validation import validate_clock
+from validation import validate_scheduler
 
 MICROSECONDS_PER_MILLISECOND = 1000
 
 class Scheduler:
   def __init__(self, config):
-    validate_clock(config)
-    self.tick_us = round(config["clock"]["tick"] * MICROSECONDS_PER_MILLISECOND)
+    validate_scheduler(config)
+    self.tick_us = round(config["scheduler"]["tick"] * MICROSECONDS_PER_MILLISECOND)
+    self.budget = config["scheduler"]["budget"]
     self.ticks = 0
     self.elapsed_us = 0
     self.queue = collections.deque()
@@ -19,10 +20,14 @@ class Scheduler:
     self.queue.append(work)
 
   def cycle(self):
+    remaining = self.budget if self.budget else math.inf
     for _ in range(len(self.queue)):
-      used = self.queue.popleft()(math.inf)
+      if remaining <= 0:
+        break
+      used = self.queue.popleft()(remaining)
       if isinstance(used, bool) or not isinstance(used, int) or used < 0:
         raise ValueError("work: must return an integer of at least 0")
+      remaining -= used
 
   def advance(self, dt_ms):
     if dt_ms < 0:
