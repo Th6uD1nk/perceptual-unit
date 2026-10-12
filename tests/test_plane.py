@@ -6,19 +6,22 @@ from plane import Plane
 
 KEY = ("house", 0.25, 0.75)
 
+def make_plane(uid="A", peak=10.0):
+  return Plane({"uid": uid, "peak": peak})
+
 class PlaneTest(unittest.TestCase):
   def test_a_new_plane_holds_no_perception(self):
-    self.assertEqual(Plane({"uid": "A"}).perceptions, {})
+    self.assertEqual(make_plane().perceptions, {})
 
   def test_two_planes_do_not_share_their_perceptions(self):
-    first = Plane({"uid": "A"})
-    second = Plane({"uid": "C"})
+    first = make_plane()
+    second = make_plane("C")
     first.receive(*KEY, 1.0)
     self.assertEqual(second.perceptions, {})
 
 class ReceiveTest(unittest.TestCase):
   def setUp(self):
-    self.plane = Plane({"uid": "A"})
+    self.plane = make_plane()
 
   def test_a_reception_creates_a_perception_with_that_energy_under_its_own_key(self):
     self.plane.receive(*KEY, 2.0)
@@ -59,9 +62,38 @@ class ReceiveTest(unittest.TestCase):
     self.assertEqual(self.plane.receive("cat", 0.25, 0.75, -1.0), 0.0)
     self.assertEqual(len(self.plane.perceptions), 1)
 
+class PeakTest(unittest.TestCase):
+  def test_a_reception_larger_than_the_peak_is_cut_at_the_peak(self):
+    plane = make_plane(peak=4.0)
+    self.assertEqual(plane.receive(*KEY, 6.0), 4.0)
+    self.assertEqual(plane.perceptions[KEY].energy, 4.0)
+
+  def test_a_reinforcement_accepts_only_what_is_left_below_the_peak(self):
+    plane = make_plane(peak=4.0)
+    plane.receive(*KEY, 3.0)
+    self.assertEqual(plane.receive(*KEY, 3.0), 1.0)
+    self.assertEqual(plane.perceptions[KEY].energy, 4.0)
+
+  def test_a_perception_at_the_peak_accepts_nothing(self):
+    plane = make_plane(peak=4.0)
+    plane.receive(*KEY, 4.0)
+    self.assertEqual(plane.receive(*KEY, 1.0), 0.0)
+    self.assertEqual(plane.perceptions[KEY].energy, 4.0)
+
+  def test_the_peak_applies_to_each_perception_on_its_own(self):
+    plane = make_plane(peak=4.0)
+    plane.receive("house", 0.25, 0.75, 4.0)
+    self.assertEqual(plane.receive("cat", 0.25, 0.75, 3.0), 3.0)
+
+  def test_each_plane_has_its_own_peak(self):
+    small = make_plane(peak=1.0)
+    large = make_plane("C", peak=5.0)
+    self.assertEqual(small.receive(*KEY, 3.0), 1.0)
+    self.assertEqual(large.receive(*KEY, 3.0), 3.0)
+
 class RemoveTest(unittest.TestCase):
   def setUp(self):
-    self.plane = Plane({"uid": "A"})
+    self.plane = make_plane()
     self.plane.receive(*KEY, 2.0)
     self.perception = self.plane.perceptions[KEY]
 
@@ -80,7 +112,7 @@ class RemoveTest(unittest.TestCase):
     self.assertFalse(self.plane.remove(self.perception))
 
   def test_a_perception_that_was_never_on_the_plane_is_not_removed(self):
-    other = Plane({"uid": "C"})
+    other = make_plane("C")
     other.receive(*KEY, 2.0)
     foreign = other.perceptions[KEY]
     self.assertFalse(self.plane.remove(foreign))
@@ -99,7 +131,7 @@ class RemoveTest(unittest.TestCase):
 
 class TakeTest(unittest.TestCase):
   def setUp(self):
-    self.plane = Plane({"uid": "A"})
+    self.plane = make_plane()
     self.plane.receive(*KEY, 3.0)
     self.perception = self.plane.perceptions[KEY]
 
@@ -117,7 +149,7 @@ class TakeTest(unittest.TestCase):
     self.assertEqual(self.perception.energy, 3.0)
 
   def test_a_perception_of_another_plane_loses_nothing(self):
-    other = Plane({"uid": "C"})
+    other = make_plane("C")
     other.receive(*KEY, 3.0)
     foreign = other.perceptions[KEY]
     self.assertEqual(self.plane.take(foreign, 1.0), 0.0)
@@ -146,7 +178,7 @@ class TakeTest(unittest.TestCase):
 
 class InvariantTest(unittest.TestCase):
   def test_every_perception_on_a_plane_has_energy(self):
-    plane = Plane({"uid": "A"})
+    plane = make_plane()
     for index in range(6):
       plane.receive(f"word{index}", 0.1 * index, 0.5, 1.0 + index)
     for perception in list(plane.perceptions.values()):

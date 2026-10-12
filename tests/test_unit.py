@@ -5,7 +5,10 @@ import support
 from plane import Plane
 from unit import Unit
 
-CONFIG = {"planes": [{"uid": "A"}, {"uid": "C"}, {"uid": "D"}]}
+def entry(uid, peak=1.0):
+  return {"uid": uid, "peak": peak}
+
+CONFIG = {"planes": [entry("A", 4.0), entry("C", 2.0), entry("D", 1.0)]}
 
 class InstantiationTest(unittest.TestCase):
   def test_the_unit_creates_one_plane_per_entry(self):
@@ -18,11 +21,15 @@ class InstantiationTest(unittest.TestCase):
     self.assertEqual(Unit(CONFIG).planes["C"].uid, "C")
 
   def test_the_order_of_the_config_is_kept(self):
-    unit = Unit({"planes": [{"uid": "D"}, {"uid": "A"}]})
+    unit = Unit({"planes": [entry("D"), entry("A")]})
     self.assertEqual(list(unit.planes), ["D", "A"])
 
+  def test_each_plane_receives_its_own_peak(self):
+    unit = Unit(CONFIG)
+    self.assertEqual([plane.peak for plane in unit.planes.values()], [4.0, 2.0, 1.0])
+
   def test_a_single_plane_is_enough(self):
-    self.assertEqual(list(Unit({"planes": [{"uid": "A"}]}).planes), ["A"])
+    self.assertEqual(list(Unit({"planes": [entry("A")]}).planes), ["A"])
 
   def test_two_units_do_not_share_their_planes(self):
     first = Unit(CONFIG)
@@ -54,17 +61,24 @@ class RejectionTest(unittest.TestCase):
     self.assertIn("config.planes", self.rejected({"planes": {"uid": "A"}}))
 
   def test_a_plane_must_be_an_object(self):
-    self.assertIn("config.planes[1]", self.rejected({"planes": [{"uid": "A"}, "C"]}))
+    self.assertIn("config.planes[1]", self.rejected({"planes": [entry("A"), "C"]}))
 
   def test_a_plane_needs_a_uid(self):
     self.assertIn("config.planes[0].uid", self.rejected({"planes": [{}]}))
 
   def test_a_uid_must_be_a_non_empty_string(self):
     for uid in ("", 3, None, ["A"]):
-      self.assertIn("config.planes[0].uid", self.rejected({"planes": [{"uid": uid}]}), repr(uid))
+      self.assertIn("config.planes[0].uid", self.rejected({"planes": [entry(uid)]}), repr(uid))
+
+  def test_a_plane_needs_a_peak(self):
+    self.assertIn("config.planes[0].peak", self.rejected({"planes": [{"uid": "A"}]}))
+
+  def test_a_peak_must_be_a_number_greater_than_zero(self):
+    for peak in (0, -1, "1", None, True, [1]):
+      self.assertIn("config.planes[0].peak", self.rejected({"planes": [entry("A", peak)]}), repr(peak))
 
   def test_a_uid_cannot_be_used_twice(self):
-    message = self.rejected({"planes": [{"uid": "A"}, {"uid": "C"}, {"uid": "A"}]})
+    message = self.rejected({"planes": [entry("A"), entry("C"), entry("A")]})
     self.assertIn("config.planes[2].uid", message)
     self.assertIn("already used", message)
 

@@ -12,6 +12,11 @@ def validate_plane(entry, path, known):
   if uid in known:
     fail(f"{path}.uid", f"{uid!r} is already used by another plane")
   known.add(uid)
+  if "peak" not in entry:
+    fail(f"{path}.peak", "missing")
+  peak = entry["peak"]
+  if isinstance(peak, bool) or not isinstance(peak, (int, float)) or peak <= 0:
+    fail(f"{path}.peak", "must be a number greater than 0")
 
 def validate_config(config):
   if not isinstance(config, dict):

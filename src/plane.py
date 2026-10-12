@@ -3,17 +3,20 @@ from perception import Perception
 class Plane:
   def __init__(self, config):
     self.uid = config["uid"]
+    self.peak = config["peak"]
     self.perceptions = {}
 
   def receive(self, hash_, x, y, amount):
-    if amount <= 0:
-      return 0.0
     key = (hash_, x, y)
     perception = self.perceptions.get(key)
+    room = self.peak - (perception.energy if perception is not None else 0.0)
+    accepted = min(amount, room)
+    if accepted <= 0:
+      return 0.0
     if perception is None:
       perception = self.perceptions[key] = Perception(hash_, x, y)
-    perception.energy += amount
-    return amount
+    perception.energy += accepted
+    return accepted
 
   def remove(self, perception):
     if self.perceptions.get(perception.key) is not perception:
