@@ -24,3 +24,10 @@ class Plane:
       return 0.0
     self.add(hash_, x, y).energy += amount
     return amount
+
+  def take(self, perception, amount):
+    if amount <= 0 or self.perceptions.get(perception.key) is not perception:
+      return 0.0
+    taken = min(amount, perception.energy)
+    perception.energy -= taken
+    return taken

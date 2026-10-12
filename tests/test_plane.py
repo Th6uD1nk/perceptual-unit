@@ -125,5 +125,46 @@ class ReceiveTest(unittest.TestCase):
     self.assertEqual(self.plane.receive("chat", 0.25, 0.75, -1.0), 0.0)
     self.assertEqual(len(self.plane.perceptions), 1)
 
+class TakeTest(unittest.TestCase):
+  def setUp(self):
+    self.plane = Plane({"uid": "A"})
+    self.plane.receive("maison", 0.25, 0.75, 3.0)
+    self.perception = self.plane.perceptions[("maison", 0.25, 0.75)]
+
+  def test_the_requested_amount_is_taken_when_there_is_enough(self):
+    self.assertEqual(self.plane.take(self.perception, 2.0), 2.0)
+    self.assertEqual(self.perception.energy, 1.0)
+
+  def test_everything_left_is_taken_when_the_request_is_larger(self):
+    self.assertEqual(self.plane.take(self.perception, 5.0), 3.0)
+    self.assertEqual(self.perception.energy, 0.0)
+
+  def test_taking_again_after_the_energy_is_gone_takes_nothing(self):
+    self.plane.take(self.perception, 5.0)
+    self.assertEqual(self.plane.take(self.perception, 1.0), 0.0)
+
+  def test_a_zero_or_negative_amount_takes_nothing(self):
+    self.assertEqual(self.plane.take(self.perception, 0.0), 0.0)
+    self.assertEqual(self.plane.take(self.perception, -1.0), 0.0)
+    self.assertEqual(self.perception.energy, 3.0)
+
+  def test_a_perception_of_another_plane_loses_nothing(self):
+    other = Plane({"uid": "C"})
+    other.receive("maison", 0.25, 0.75, 3.0)
+    foreign = other.perceptions[("maison", 0.25, 0.75)]
+    self.assertEqual(self.plane.take(foreign, 1.0), 0.0)
+    self.assertEqual(foreign.energy, 3.0)
+
+  def test_another_object_with_the_same_key_loses_nothing(self):
+    stranger = Perception("maison", 0.25, 0.75)
+    stranger.energy = 3.0
+    self.assertEqual(self.plane.take(stranger, 1.0), 0.0)
+    self.assertEqual(stranger.energy, 3.0)
+    self.assertEqual(self.perception.energy, 3.0)
+
+  def test_taking_leaves_the_perceptions_of_the_plane_in_place(self):
+    self.plane.take(self.perception, 5.0)
+    self.assertEqual(list(self.plane.perceptions.values()), [self.perception])
+
 if __name__ == "__main__":
   unittest.main()
