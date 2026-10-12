@@ -2,14 +2,15 @@ import math
 import unittest
 
 import support
+from scheduler import Scheduler
 from cursor import Cursor
 from perception import Perception
 from plane import Plane
 
-def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625):
+def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625, step=0.25):
   source = source if source is not None else Plane({"uid": "A", "peak": 10.0})
   target = target if target is not None else Plane({"uid": "C", "peak": 10.0})
-  return Cursor(x, y, dx, dy, source, target, energy)
+  return Cursor(x, y, dx, dy, source, target, energy, step)
 
 class CreationTest(unittest.TestCase):
   def test_the_direction_is_normalized(self):
@@ -30,7 +31,13 @@ class CreationTest(unittest.TestCase):
     plane = Plane({"uid": "A", "peak": 1.0})
     for energy in (0, -0.5):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy, 0.25)
+
+  def test_a_step_that_is_not_positive_is_refused(self):
+    plane = Plane({"uid": "A", "peak": 1.0})
+    for step in (0, -0.25):
+      with self.assertRaises(ValueError):
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, step)
 
   def test_a_position_on_the_edge_is_accepted(self):
     make_cursor(0.0, 1.0, 1.0, 0.0)
@@ -215,6 +222,36 @@ class FinishTest(unittest.TestCase):
       self.cursor.finish(-0.1)
     self.assertEqual(self.target.perceptions, {})
     self.assertEqual(len(self.cursor.hits), 1)
+
+class RunTest(unittest.TestCase):
+  def setUp(self):
+    self.scheduler = Scheduler({"clock": {"tick": 1.0}})
+    self.source = Plane({"uid": "A", "peak": 10.0})
+    self.target = Plane({"uid": "C", "peak": 10.0})
+    self.cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, self.target, step=0.125)
+    self.cursor.start(self.scheduler)
+
+  def ticks(self, count):
+    self.scheduler.advance(float(count))
+
+  def test_a_started_cursor_waits_for_a_tick(self):
+    self.assertEqual(self.cursor.segment, None)
+    self.scheduler.advance(0.5)
+    self.assertEqual(self.cursor.segment, None)
+
+  def test_the_cursor_moves_by_its_step_at_every_tick_even_over_an_empty_plane(self):
+    self.ticks(3)
+    self.assertAlmostEqual(self.cursor.x, 0.625)
+    self.assertEqual(self.cursor.segment, (0.5, 0.5, 0.625, 0.5))
+
+  def test_the_perceptions_touched_by_a_move_are_read_at_the_end_of_the_next_pass(self):
+    self.source.receive("first", 0.34375, 0.5, 0.0625)
+    self.source.receive("second", 0.375, 0.5, 0.0625)
+    self.ticks(1)
+    self.assertEqual(self.target.perceptions, {})
+    self.ticks(1)
+    self.assertEqual(self.target.perceptions[("first", 0.34375, 0.5)].energy, 0.0625)
+    self.assertEqual(self.target.perceptions[("second", 0.375, 0.5)].energy, 0.0625)
 
 if __name__ == "__main__":
   unittest.main()
