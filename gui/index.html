@@ -13,8 +13,36 @@
     <script>
       const canvas = document.getElementById("plane");
       const context = canvas.getContext("2d");
-      context.strokeStyle = "black";
-      context.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+
+      function drawFrame() {
+        context.strokeStyle = "black";
+        context.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+      }
+
+      function drawPerception(perception) {
+        const radius = Math.max(1, perception.energy * canvas.width);
+        context.beginPath();
+        context.arc(perception.x * canvas.width, perception.y * canvas.height, radius, 0, 2 * Math.PI);
+        if (perception.read) {
+          context.stroke();
+        } else {
+          context.fill();
+        }
+      }
+
+      function draw(state) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        drawFrame();
+        state.planes[0].perceptions.forEach(drawPerception);
+      }
+
+      async function refresh() {
+        const response = await fetch("/api/state");
+        draw(await response.json());
+      }
+
+      refresh();
+      setInterval(refresh, 500);
     </script>
   </body>
 </html>
