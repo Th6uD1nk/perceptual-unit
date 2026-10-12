@@ -52,6 +52,61 @@ class AdvanceTest(unittest.TestCase):
   def test_the_tick_duration_comes_from_the_config(self):
     self.assertEqual(make_scheduler(tick=2.0).advance(10.0), 5)
 
+class WorkTest(unittest.TestCase):
+  def setUp(self):
+    self.scheduler = make_scheduler()
+    self.calls = []
+
+  def record(self, name):
+    return lambda: self.calls.append(name)
+
+  def test_a_submitted_work_does_not_run_at_once(self):
+    self.scheduler.submit(self.record("a"))
+    self.assertEqual(self.calls, [])
+
+  def test_a_submitted_work_waits_for_a_full_tick(self):
+    self.scheduler.submit(self.record("a"))
+    self.scheduler.advance(3.0)
+    self.assertEqual(self.calls, [])
+    self.scheduler.advance(1.0)
+    self.assertEqual(self.calls, ["a"])
+
+  def test_a_work_runs_once_unless_it_submits_itself_again(self):
+    self.scheduler.submit(self.record("a"))
+    self.scheduler.advance(12.0)
+    self.assertEqual(self.calls, ["a"])
+
+  def test_a_work_that_submits_itself_again_runs_at_every_tick(self):
+    def again():
+      self.calls.append("again")
+      self.scheduler.submit(again)
+    self.scheduler.submit(again)
+    self.scheduler.advance(12.0)
+    self.assertEqual(self.calls, ["again", "again", "again"])
+
+  def test_the_works_run_in_the_order_of_their_submission(self):
+    for name in ("a", "b", "c"):
+      self.scheduler.submit(self.record(name))
+    self.scheduler.advance(4.0)
+    self.assertEqual(self.calls, ["a", "b", "c"])
+
+  def test_a_work_submitted_during_a_cycle_waits_for_the_next_tick(self):
+    self.scheduler.submit(lambda: self.scheduler.submit(self.record("late")))
+    self.scheduler.advance(4.0)
+    self.assertEqual(self.calls, [])
+    self.scheduler.advance(4.0)
+    self.assertEqual(self.calls, ["late"])
+
+  def test_the_ticks_are_counted_before_the_works_of_a_tick_run(self):
+    seen = []
+    self.scheduler.submit(lambda: seen.append(self.scheduler.ticks))
+    self.scheduler.advance(4.0)
+    self.assertEqual(seen, [1])
+
+  def test_a_work_must_be_callable(self):
+    with self.assertRaises(ValueError):
+      self.scheduler.submit("work")
+
 class ConfigTest(unittest.TestCase):
   def rejected(self, config):
     with self.assertRaises(ValueError) as caught:
