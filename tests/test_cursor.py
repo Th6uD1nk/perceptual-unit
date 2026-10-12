@@ -7,10 +7,10 @@ from cursor import Cursor
 from perception import Perception
 from plane import Plane
 
-def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625, step=0.25, cooldown=0):
+def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0):
   source = source if source is not None else Plane({"uid": "A", "peak": 10.0})
   target = target if target is not None else Plane({"uid": "C", "peak": 10.0})
-  return Cursor(x, y, dx, dy, source, target, energy, step, cooldown)
+  return Cursor(x, y, dx, dy, source, target, energy, step, cooldown, attraction, distance_power)
 
 class CreationTest(unittest.TestCase):
   def test_the_direction_is_normalized(self):
@@ -31,19 +31,27 @@ class CreationTest(unittest.TestCase):
     plane = Plane({"uid": "A", "peak": 1.0})
     for energy in (0, -0.5):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy, 0.25, 0)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy, 0.25, 0, 0.0, 2.0)
 
   def test_a_step_that_is_not_positive_is_refused(self):
     plane = Plane({"uid": "A", "peak": 1.0})
     for step in (0, -0.25):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, step, 0)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, step, 0, 0.0, 2.0)
 
   def test_a_cooldown_that_is_not_a_count_of_ticks_is_refused(self):
     plane = Plane({"uid": "A", "peak": 1.0})
     for cooldown in (-1, 1.5, "2", True, None):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, cooldown)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, cooldown, 0.0, 2.0)
+
+  def test_an_attraction_or_a_distance_power_below_zero_is_refused(self):
+    plane = Plane({"uid": "A", "peak": 1.0})
+    for value in (-1, "1", None, True):
+      with self.assertRaises(ValueError):
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, value, 2.0)
+      with self.assertRaises(ValueError):
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, 0, 0.0, value)
 
   def test_a_position_on_the_edge_is_accepted(self):
     make_cursor(0.0, 1.0, 1.0, 0.0)
@@ -315,6 +323,85 @@ class CooldownTest(unittest.TestCase):
     other = self.make(2)
     self.scheduler.advance(1.0)
     self.assertEqual(self.sweep(other), 0.0)
+
+class AttractionTest(unittest.TestCase):
+  def setUp(self):
+    self.source = Plane({"uid": "A", "peak": 10.0})
+
+  def turned(self, perceptions, attraction=1.0, distance_power=2.0, direction=(1.0, 0.0)):
+    cursor = make_cursor(0.5, 0.5, *direction, self.source, attraction=attraction, distance_power=distance_power)
+    for x, y, energy in perceptions:
+      self.source.receive(f"p{x}-{y}", x, y, energy)
+    self.source.visit(10, cursor.on_visit)
+    cursor.finish(0.0)
+    return cursor
+
+  def test_a_perception_turns_the_direction_toward_itself(self):
+    cursor = self.turned([(0.5, 0.75, 0.0625)])
+    self.assertAlmostEqual(cursor.dx, math.sqrt(0.5))
+    self.assertAlmostEqual(cursor.dy, math.sqrt(0.5))
+
+  def test_a_nearer_perception_turns_the_direction_more(self):
+    near = self.turned([(0.5, 0.625, 0.03125)])
+    self.source = Plane({"uid": "A", "peak": 10.0})
+    far = self.turned([(0.5, 0.875, 0.03125)])
+    self.assertGreater(near.dy, far.dy)
+
+  def test_a_stronger_perception_turns_the_direction_more(self):
+    weak = self.turned([(0.5, 0.75, 0.03125)])
+    self.source = Plane({"uid": "A", "peak": 10.0})
+    strong = self.turned([(0.5, 0.75, 0.125)])
+    self.assertGreater(strong.dy, weak.dy)
+
+  def test_without_attraction_the_direction_does_not_change(self):
+    cursor = self.turned([(0.5, 0.75, 0.0625)], attraction=0.0)
+    self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
+
+  def test_a_distance_power_of_zero_ignores_the_distance(self):
+    near = self.turned([(0.5, 0.625, 0.03125)], distance_power=0.0)
+    self.source = Plane({"uid": "A", "peak": 10.0})
+    far = self.turned([(0.5, 0.875, 0.03125)], distance_power=0.0)
+    self.assertAlmostEqual(near.dy, far.dy)
+
+  def test_a_perception_that_is_blocked_for_reading_exerts_no_attraction(self):
+    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, attraction=1.0, cooldown=5)
+    self.source.receive("p", 0.5, 0.75, 0.0625)
+    self.source.perceptions[("p", 0.5, 0.75)].read = True
+    self.source.visit(10, cursor.on_visit)
+    cursor.finish(0.0)
+    self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
+
+  def test_a_perception_attracts_again_once_its_cooldown_is_over(self):
+    cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, attraction=1.0, cooldown=0)
+    self.source.receive("p", 0.5, 0.75, 0.0625)
+    self.source.perceptions[("p", 0.5, 0.75)].read = True
+    self.source.visit(10, cursor.on_visit)
+    cursor.finish(0.0)
+    self.assertGreater(cursor.dy, 0.0)
+
+  def test_a_perception_that_contains_the_cursor_exerts_nothing(self):
+    cursor = self.turned([(0.5, 0.5, 0.125)])
+    self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
+
+  def test_two_opposite_perceptions_cancel_each_other(self):
+    cursor = self.turned([(0.5, 0.75, 0.0625), (0.5, 0.25, 0.0625)])
+    self.assertAlmostEqual(cursor.dx, 1.0)
+    self.assertAlmostEqual(cursor.dy, 0.0)
+
+  def test_a_force_that_cancels_the_direction_exactly_keeps_the_previous_direction(self):
+    cursor = self.turned([(0.25, 0.5, 0.0625)])
+    self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
+
+  def test_the_direction_stays_normalized(self):
+    cursor = self.turned([(0.5, 0.75, 0.0625), (0.75, 0.5, 0.125)])
+    self.assertAlmostEqual(math.hypot(cursor.dx, cursor.dy), 1.0)
+
+  def test_the_force_is_cleared_once_it_has_been_applied(self):
+    cursor = self.turned([(0.5, 0.75, 0.0625)])
+    direction = (cursor.dx, cursor.dy)
+    cursor.finish(0.0)
+    self.assertAlmostEqual(cursor.dx, direction[0])
+    self.assertAlmostEqual(cursor.dy, direction[1])
 
 if __name__ == "__main__":
   unittest.main()

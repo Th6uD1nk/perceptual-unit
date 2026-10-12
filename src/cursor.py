@@ -1,13 +1,16 @@
 import math
 
 class Cursor:
-  def __init__(self, x, y, dx, dy, source, target, energy, step, cooldown):
+  def __init__(self, x, y, dx, dy, source, target, energy, step, cooldown, attraction, distance_power):
     if not (0 <= x <= 1 and 0 <= y <= 1):
       raise ValueError("position: must be inside the plane")
     if energy <= 0:
       raise ValueError("energy: must be greater than 0")
     if step <= 0:
       raise ValueError("step: must be greater than 0")
+    for name, value in (("attraction", attraction), ("distance_power", distance_power)):
+      if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        raise ValueError(f"{name}: must be a number of at least 0")
     if isinstance(cooldown, bool) or not isinstance(cooldown, int) or cooldown < 0:
       raise ValueError("cooldown: must be an integer of at least 0")
     length = math.hypot(dx, dy)
@@ -22,6 +25,10 @@ class Cursor:
     self.energy = energy
     self.step = step
     self.cooldown = cooldown
+    self.attraction = attraction
+    self.distance_power = distance_power
+    self.force_x = 0.0
+    self.force_y = 0.0
     self.scheduler = None
     self.segment = None
     self.hits = []
@@ -61,6 +68,26 @@ class Cursor:
       perception.read = False
     if not perception.read and self.touches(perception):
       self.hits.append(perception)
+    if not perception.read:
+      self.attract(perception)
+
+  def attract(self, perception):
+    dx, dy = perception.x - self.x, perception.y - self.y
+    distance = math.hypot(dx, dy)
+    if perception.energy <= 0 or distance <= perception.energy:
+      return
+    pull = perception.energy / distance ** self.distance_power
+    self.force_x += pull * dx / distance
+    self.force_y += pull * dy / distance
+
+  def turn(self):
+    dx = self.dx + self.attraction * self.force_x
+    dy = self.dy + self.attraction * self.force_y
+    length = math.hypot(dx, dy)
+    if length > 0:
+      self.dx, self.dy = dx / length, dy / length
+    self.force_x = 0.0
+    self.force_y = 0.0
 
   def finish(self, distance):
     if distance < 0:
@@ -71,6 +98,7 @@ class Cursor:
       perception.read = True
       perception.read_tick = self.now
     self.hits = []
+    self.turn()
     self.advance(distance)
     return transferred
 
