@@ -19,14 +19,15 @@ def load_unit(path=CONFIG_PATH):
 class Handler(BaseHTTPRequestHandler):
   def do_GET(self):
     if self.path == "/":
-      self.send_page()
+      self.send_body("text/html; charset=utf-8", PAGE_PATH.read_bytes())
+    elif self.path == "/api/state":
+      self.send_body("application/json", json.dumps(self.server.unit.state()).encode("utf-8"))
     else:
       self.send_error(404)
 
-  def send_page(self):
-    body = PAGE_PATH.read_bytes()
+  def send_body(self, content_type, body):
     self.send_response(200)
-    self.send_header("Content-Type", "text/html; charset=utf-8")
+    self.send_header("Content-Type", content_type)
     self.send_header("Content-Length", str(len(body)))
     self.end_headers()
     self.wfile.write(body)

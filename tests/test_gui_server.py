@@ -45,6 +45,13 @@ class ServerTest(unittest.TestCase):
       self.assertIn("text/html", response.headers["Content-Type"])
       self.assertEqual(response.read(), PAGE_PATH.read_bytes())
 
+  def test_the_state_route_serves_the_state_of_the_unit_as_json(self):
+    self.server.unit.planes["A"].receive("house", 0.25, 0.75, 0.125)
+    with urllib.request.urlopen(self.base + "/api/state") as response:
+      self.assertEqual(response.status, 200)
+      self.assertIn("application/json", response.headers["Content-Type"])
+      self.assertEqual(json.loads(response.read()), self.server.unit.state())
+
   def test_an_unknown_route_is_not_found(self):
     with self.assertRaises(urllib.error.HTTPError) as caught:
       urllib.request.urlopen(self.base + "/unknown")
