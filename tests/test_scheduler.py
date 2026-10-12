@@ -40,6 +40,15 @@ class AdvanceTest(unittest.TestCase):
       scheduler.advance(-1.0)
     self.assertEqual(scheduler.advance(1.0), 1)
 
+  def test_a_fractional_tick_is_counted_exactly(self):
+    self.assertEqual(make_scheduler(tick=0.1).advance(0.3), 3)
+
+  def test_inexact_durations_lose_no_tick_over_many_calls(self):
+    scheduler = make_scheduler(tick=1.0)
+    for _ in range(60):
+      scheduler.advance(16.7)
+    self.assertEqual(scheduler.ticks, 1002)
+
   def test_the_tick_duration_comes_from_the_config(self):
     self.assertEqual(make_scheduler(tick=2.0).advance(10.0), 5)
 
@@ -61,8 +70,8 @@ class ConfigTest(unittest.TestCase):
   def test_the_tick_is_required(self):
     self.assertIn("config.clock.tick", self.rejected({"clock": {}}))
 
-  def test_the_tick_must_be_a_number_greater_than_zero(self):
-    for tick in (0, -1, "4", None, True, [4]):
+  def test_the_tick_must_be_a_number_of_at_least_one_microsecond(self):
+    for tick in (0, -1, 0.0005, "4", None, True, [4]):
       self.assertIn("config.clock.tick", self.rejected({"clock": {"tick": tick}}), repr(tick))
 
 if __name__ == "__main__":

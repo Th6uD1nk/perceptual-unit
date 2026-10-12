@@ -1,3 +1,5 @@
+MIN_TICK_MS = 0.001
+
 def fail(path, message):
   raise ValueError(f"{path}: {message}")
 
@@ -41,5 +43,5 @@ def validate_clock(config):
   if "tick" not in clock:
     fail("config.clock.tick", "missing")
   tick = clock["tick"]
-  if isinstance(tick, bool) or not isinstance(tick, (int, float)) or tick <= 0:
-    fail("config.clock.tick", "must be a number greater than 0")
+  if isinstance(tick, bool) or not isinstance(tick, (int, float)) or tick < MIN_TICK_MS:
+    fail("config.clock.tick", f"must be a number of at least {MIN_TICK_MS}")
