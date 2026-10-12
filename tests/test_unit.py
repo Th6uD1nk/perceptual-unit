@@ -1,7 +1,9 @@
 import copy
 import unittest
 
-from perceptual_unit import Plane, Unit
+import support
+from plane import Plane
+from unit import Unit
 
 CONFIG = {"planes": [{"uid": "A"}, {"uid": "C"}, {"uid": "D"}]}
 

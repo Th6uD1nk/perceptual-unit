@@ -1,7 +1,7 @@
 import copy
 
-from perceptual_unit.plane import Plane
-from perceptual_unit.validation import validate_config
+from plane import Plane
+from validation import validate_config
 
 class Unit:
   def __init__(self, config):
