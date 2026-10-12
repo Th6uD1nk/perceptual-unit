@@ -6,50 +6,61 @@ from cursor import Cursor
 from perception import Perception
 from plane import Plane
 
+def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625):
+  source = source if source is not None else Plane({"uid": "A", "peak": 10.0})
+  target = target if target is not None else Plane({"uid": "C", "peak": 10.0})
+  return Cursor(x, y, dx, dy, source, target, energy)
+
 class CreationTest(unittest.TestCase):
   def test_the_direction_is_normalized(self):
-    cursor = Cursor(0.5, 0.5, 3.0, 4.0)
+    cursor = make_cursor(0.5, 0.5, 3.0, 4.0)
     self.assertAlmostEqual(cursor.dx, 0.6)
     self.assertAlmostEqual(cursor.dy, 0.8)
 
   def test_a_null_direction_is_refused(self):
     with self.assertRaises(ValueError):
-      Cursor(0.5, 0.5, 0.0, 0.0)
+      make_cursor(0.5, 0.5, 0.0, 0.0)
 
   def test_a_position_outside_the_plane_is_refused(self):
     for x, y in ((1.5, 0.5), (0.5, -0.1), (-0.1, 1.1)):
       with self.assertRaises(ValueError):
-        Cursor(x, y, 1.0, 0.0)
+        make_cursor(x, y, 1.0, 0.0)
+
+  def test_an_energy_that_is_not_positive_is_refused(self):
+    plane = Plane({"uid": "A", "peak": 1.0})
+    for energy in (0, -0.5):
+      with self.assertRaises(ValueError):
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy)
 
   def test_a_position_on_the_edge_is_accepted(self):
-    Cursor(0.0, 1.0, 1.0, 0.0)
+    make_cursor(0.0, 1.0, 1.0, 0.0)
 
   def test_there_is_no_segment_before_the_first_move(self):
-    self.assertIsNone(Cursor(0.5, 0.5, 1.0, 0.0).segment)
+    self.assertIsNone(make_cursor(0.5, 0.5, 1.0, 0.0).segment)
 
 class AdvanceTest(unittest.TestCase):
   def test_the_cursor_moves_along_its_direction_by_the_distance(self):
-    cursor = Cursor(0.2, 0.2, 1.0, 0.0)
+    cursor = make_cursor(0.2, 0.2, 1.0, 0.0)
     cursor.advance(0.3)
     self.assertAlmostEqual(cursor.x, 0.5)
     self.assertAlmostEqual(cursor.y, 0.2)
 
   def test_a_diagonal_move_covers_the_requested_distance(self):
-    cursor = Cursor(0.1, 0.1, 1.0, 1.0)
+    cursor = make_cursor(0.1, 0.1, 1.0, 1.0)
     cursor.advance(0.2)
     self.assertAlmostEqual(math.hypot(cursor.x - 0.1, cursor.y - 0.1), 0.2)
 
   def test_a_zero_distance_does_not_move_the_cursor(self):
-    cursor = Cursor(0.4, 0.6, 1.0, 1.0)
+    cursor = make_cursor(0.4, 0.6, 1.0, 1.0)
     cursor.advance(0.0)
     self.assertEqual((cursor.x, cursor.y), (0.4, 0.6))
 
   def test_a_negative_distance_is_refused(self):
     with self.assertRaises(ValueError):
-      Cursor(0.4, 0.6, 1.0, 1.0).advance(-0.1)
+      make_cursor(0.4, 0.6, 1.0, 1.0).advance(-0.1)
 
   def test_the_segment_goes_from_the_old_to_the_new_position(self):
-    cursor = Cursor(0.2, 0.2, 1.0, 0.0)
+    cursor = make_cursor(0.2, 0.2, 1.0, 0.0)
     cursor.advance(0.3)
     start_x, start_y, end_x, end_y = cursor.segment
     self.assertEqual((start_x, start_y), (0.2, 0.2))
@@ -65,13 +76,13 @@ class BounceTest(unittest.TestCase):
       ((0.5, 0.9, 0.0, 1.0), (0.5, 0.8, 0.0, -1.0)),
     )
     for start, expected in cases:
-      cursor = Cursor(*start)
+      cursor = make_cursor(*start)
       cursor.advance(0.3)
       for actual, wanted in zip((cursor.x, cursor.y, cursor.dx, cursor.dy), expected):
         self.assertAlmostEqual(actual, wanted, msg=repr(start))
 
   def test_the_cursor_bounces_on_two_edges_in_a_corner(self):
-    cursor = Cursor(0.9, 0.9, 1.0, 1.0)
+    cursor = make_cursor(0.9, 0.9, 1.0, 1.0)
     cursor.advance(0.3 * math.sqrt(2))
     self.assertAlmostEqual(cursor.x, 0.8)
     self.assertAlmostEqual(cursor.y, 0.8)
@@ -79,7 +90,7 @@ class BounceTest(unittest.TestCase):
     self.assertLess(cursor.dy, 0.0)
 
   def test_the_cursor_stays_in_the_plane_whatever_the_distance(self):
-    cursor = Cursor(0.3, 0.7, 2.0, 1.0)
+    cursor = make_cursor(0.3, 0.7, 2.0, 1.0)
     for distance in (0.5, 5.3, 12.7, 100.1):
       cursor.advance(distance)
       self.assertTrue(0.0 <= cursor.x <= 1.0)
@@ -92,7 +103,7 @@ def perception(x, y, energy):
   return found
 
 def moved_cursor():
-  cursor = Cursor(0.25, 0.5, 1.0, 0.0)
+  cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
   cursor.advance(0.5)
   return cursor
 
@@ -119,10 +130,10 @@ class CollisionTest(unittest.TestCase):
     self.assertFalse(moved_cursor().touches(perception(0.5, 0.5, 0.0)))
 
   def test_nothing_is_touched_before_the_first_move(self):
-    self.assertFalse(Cursor(0.25, 0.5, 1.0, 0.0).touches(perception(0.25, 0.5, 0.5)))
+    self.assertFalse(make_cursor(0.25, 0.5, 1.0, 0.0).touches(perception(0.25, 0.5, 0.5)))
 
   def test_nothing_is_touched_by_a_move_of_zero_distance(self):
-    cursor = Cursor(0.25, 0.5, 1.0, 0.0)
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
     cursor.advance(0.0)
     self.assertFalse(cursor.touches(perception(0.5, 0.5, 0.125)))
 
@@ -135,6 +146,75 @@ class CollisionTest(unittest.TestCase):
     cursor = moved_cursor()
     plane.visit(10, cursor.on_visit)
     self.assertEqual([hit.hash for hit in cursor.hits], ["first", "brush"])
+
+class FinishTest(unittest.TestCase):
+  def setUp(self):
+    self.source = Plane({"uid": "A", "peak": 10.0})
+    self.target = Plane({"uid": "C", "peak": 10.0})
+    self.cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, self.target)
+    self.cursor.advance(0.5)
+
+  def run_pass(self):
+    self.source.visit(10, self.cursor.on_visit)
+
+  def test_a_touched_perception_is_read_and_its_energy_goes_to_the_target(self):
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.run_pass()
+    self.assertEqual(self.cursor.finish(0.25), 0.0625)
+    self.assertEqual(self.source.perceptions[("first", 0.5, 0.5)].energy, 0.0625)
+    self.assertEqual(self.target.perceptions[("first", 0.5, 0.5)].energy, 0.0625)
+
+  def test_the_total_energy_of_all_the_reads_is_returned(self):
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.source.receive("second", 0.625, 0.5, 0.125)
+    self.run_pass()
+    self.assertEqual(self.cursor.finish(0.25), 0.125)
+
+  def test_a_perception_with_less_energy_than_a_read_gives_all_and_leaves_the_plane(self):
+    self.source.receive("first", 0.5, 0.5, 0.03125)
+    self.run_pass()
+    self.assertEqual(self.cursor.finish(0.25), 0.03125)
+    self.assertEqual(self.source.perceptions, {})
+
+  def test_the_peak_of_the_target_is_respected_and_the_surplus_stays_in_the_source(self):
+    target = Plane({"uid": "C", "peak": 0.03125})
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, target)
+    cursor.advance(0.5)
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.source.visit(10, cursor.on_visit)
+    self.assertEqual(cursor.finish(0.25), 0.03125)
+    self.assertEqual(self.source.perceptions[("first", 0.5, 0.5)].energy, 0.09375)
+
+  def test_a_perception_removed_before_the_end_of_the_pass_is_not_read(self):
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.run_pass()
+    self.source.remove(self.cursor.hits[0])
+    self.assertEqual(self.cursor.finish(0.25), 0.0)
+    self.assertEqual(self.target.perceptions, {})
+
+  def test_the_hits_are_emptied_by_the_end_of_the_pass(self):
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.run_pass()
+    self.cursor.finish(0.25)
+    self.assertEqual(self.cursor.hits, [])
+
+  def test_the_cursor_moves_after_the_reads_and_keeps_the_new_segment(self):
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.run_pass()
+    self.cursor.finish(0.125)
+    self.assertEqual(self.cursor.segment, (0.75, 0.5, 0.875, 0.5))
+
+  def test_a_pass_without_any_hit_still_moves_the_cursor_and_transfers_nothing(self):
+    self.assertEqual(self.cursor.finish(0.125), 0.0)
+    self.assertAlmostEqual(self.cursor.x, 0.875)
+
+  def test_a_negative_distance_is_refused_before_anything_is_read(self):
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.run_pass()
+    with self.assertRaises(ValueError):
+      self.cursor.finish(-0.1)
+    self.assertEqual(self.target.perceptions, {})
+    self.assertEqual(len(self.cursor.hits), 1)
 
 if __name__ == "__main__":
   unittest.main()

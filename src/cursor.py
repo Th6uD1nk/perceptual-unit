@@ -1,9 +1,11 @@
 import math
 
 class Cursor:
-  def __init__(self, x, y, dx, dy):
+  def __init__(self, x, y, dx, dy, source, target, energy):
     if not (0 <= x <= 1 and 0 <= y <= 1):
       raise ValueError("position: must be inside the plane")
+    if energy <= 0:
+      raise ValueError("energy: must be greater than 0")
     length = math.hypot(dx, dy)
     if length == 0:
       raise ValueError("direction: must not be null")
@@ -11,6 +13,9 @@ class Cursor:
     self.y = y
     self.dx = dx / length
     self.dy = dy / length
+    self.source = source
+    self.target = target
+    self.energy = energy
     self.segment = None
     self.hits = []
 
@@ -43,6 +48,16 @@ class Cursor:
   def on_visit(self, perception):
     if self.touches(perception):
       self.hits.append(perception)
+
+  def finish(self, distance):
+    if distance < 0:
+      raise ValueError("distance: must not be negative")
+    transferred = 0.0
+    for perception in self.hits:
+      transferred += self.source.transfer(perception, self.target, self.energy)
+    self.hits = []
+    self.advance(distance)
+    return transferred
 
 def distance_to_segment(x, y, start_x, start_y, end_x, end_y):
   dx, dy = end_x - start_x, end_y - start_y
