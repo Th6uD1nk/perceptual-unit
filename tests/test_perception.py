@@ -19,6 +19,18 @@ class PerceptionTest(unittest.TestCase):
     first.energy = 2.0
     self.assertEqual(second.energy, 0.0)
 
+  def test_the_key_is_the_triplet_of_the_hash_and_the_position(self):
+    self.assertEqual(Perception("maison", 0.25, 0.75).key, ("maison", 0.25, 0.75))
+
+  def test_the_key_follows_the_position(self):
+    perception = Perception("maison", 0.25, 0.75)
+    perception.x = 0.5
+    self.assertEqual(perception.key, ("maison", 0.5, 0.75))
+
+  def test_the_key_cannot_be_set(self):
+    with self.assertRaises(AttributeError):
+      Perception("maison", 0.25, 0.75).key = ("chat", 0.0, 0.0)
+
   def test_a_perception_holds_nothing_else(self):
     with self.assertRaises(AttributeError):
       Perception("maison", 0.1, 0.1).age = 3

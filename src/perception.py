@@ -6,3 +6,7 @@ class Perception:
     self.x = x
     self.y = y
     self.energy = 0.0
+
+  @property
+  def key(self):
+    return (self.hash, self.x, self.y)
