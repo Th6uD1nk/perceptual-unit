@@ -11,6 +11,8 @@
     </div>
     <canvas id="plane" width="400" height="400"></canvas>
     <script>
+      const field = document.getElementById("token");
+      const button = document.getElementById("send");
       const canvas = document.getElementById("plane");
       const context = canvas.getContext("2d");
 
@@ -40,6 +42,25 @@
         const response = await fetch("/api/state");
         draw(await response.json());
       }
+
+      async function send() {
+        const response = await fetch("/api/token", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({token: field.value})
+        });
+        if (response.ok) {
+          field.value = "";
+          draw(await response.json());
+        }
+      }
+
+      button.addEventListener("click", send);
+      field.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          send();
+        }
+      });
 
       refresh();
       setInterval(refresh, 500);
