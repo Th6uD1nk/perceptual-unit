@@ -12,6 +12,7 @@ CONFIG_PATH = GUI_DIR / "config.json"
 PAGE_PATH = GUI_DIR / "index.html"
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8100
+TOKEN_ENERGY = 0.0625
 
 def load_unit(path=CONFIG_PATH):
   return Unit(json.loads(Path(path).read_text()))
@@ -19,14 +20,31 @@ def load_unit(path=CONFIG_PATH):
 class Handler(BaseHTTPRequestHandler):
   def do_GET(self):
     if self.path == "/":
-      self.send_body("text/html; charset=utf-8", PAGE_PATH.read_bytes())
+      self.send_body(200, "text/html; charset=utf-8", PAGE_PATH.read_bytes())
     elif self.path == "/api/state":
-      self.send_body("application/json", json.dumps(self.server.unit.state()).encode("utf-8"))
+      self.send_json(200, self.server.unit.state())
     else:
       self.send_error(404)
 
-  def send_body(self, content_type, body):
-    self.send_response(200)
+  def do_POST(self):
+    if self.path != "/api/token":
+      self.send_error(404)
+      return
+    try:
+      payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+      if not isinstance(payload, dict):
+        raise ValueError("body: must be an object")
+      self.server.unit.feed(payload.get("token"), TOKEN_ENERGY)
+    except ValueError as error:
+      self.send_json(400, {"error": str(error)})
+      return
+    self.send_json(200, self.server.unit.state())
+
+  def send_json(self, status, payload):
+    self.send_body(status, "application/json", json.dumps(payload).encode("utf-8"))
+
+  def send_body(self, status, content_type, body):
+    self.send_response(status)
     self.send_header("Content-Type", content_type)
     self.send_header("Content-Length", str(len(body)))
     self.end_headers()
