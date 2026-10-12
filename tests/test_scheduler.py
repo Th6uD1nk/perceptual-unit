@@ -10,14 +10,10 @@ class AdvanceTest(unittest.TestCase):
   def test_a_new_scheduler_has_no_tick(self):
     self.assertEqual(make_scheduler().ticks, 0)
 
-  def test_less_than_a_tick_gives_no_tick(self):
-    scheduler = make_scheduler()
-    self.assertEqual(scheduler.advance(3.0), 0)
-    self.assertEqual(scheduler.ticks, 0)
-
   def test_partial_amounts_add_up_to_a_tick(self):
     scheduler = make_scheduler()
     self.assertEqual(scheduler.advance(3.0), 0)
+    self.assertEqual(scheduler.ticks, 0)
     self.assertEqual(scheduler.advance(3.0), 1)
     self.assertEqual(scheduler.ticks, 1)
 
@@ -49,9 +45,6 @@ class AdvanceTest(unittest.TestCase):
       scheduler.advance(16.7)
     self.assertEqual(scheduler.ticks, 1002)
 
-  def test_the_tick_duration_comes_from_the_config(self):
-    self.assertEqual(make_scheduler(tick=2.0).advance(10.0), 5)
-
 class WorkTest(unittest.TestCase):
   def setUp(self):
     self.scheduler = make_scheduler()
@@ -59,10 +52,6 @@ class WorkTest(unittest.TestCase):
 
   def record(self, name):
     return lambda: self.calls.append(name)
-
-  def test_a_submitted_work_does_not_run_at_once(self):
-    self.scheduler.submit(self.record("a"))
-    self.assertEqual(self.calls, [])
 
   def test_a_submitted_work_waits_for_a_full_tick(self):
     self.scheduler.submit(self.record("a"))

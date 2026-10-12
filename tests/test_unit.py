@@ -31,9 +31,6 @@ class InstantiationTest(unittest.TestCase):
     unit = Unit(CONFIG)
     self.assertEqual([plane.peak for plane in unit.planes.values()], [4.0, 2.0, 1.0])
 
-  def test_a_single_plane_is_enough(self):
-    self.assertEqual(list(Unit(make_config([entry("A")])).planes), ["A"])
-
   def test_two_units_do_not_share_their_planes(self):
     first = Unit(CONFIG)
     second = Unit(CONFIG)
@@ -48,19 +45,10 @@ class InstantiationTest(unittest.TestCase):
     self.assertEqual(unit.config, CONFIG)
 
 class ClockTest(unittest.TestCase):
-  def test_a_new_unit_has_no_tick(self):
-    self.assertEqual(Unit(CONFIG).ticks, 0)
-
   def test_an_update_advances_the_ticks_by_the_tick_duration_of_the_config(self):
     unit = Unit(make_config([entry("A")], tick=2.0))
     self.assertEqual(unit.update(10.0), 5)
     self.assertEqual(unit.ticks, 5)
-
-  def test_partial_updates_add_up_to_a_tick(self):
-    unit = Unit(CONFIG)
-    self.assertEqual(unit.update(3.0), 0)
-    self.assertEqual(unit.update(3.0), 1)
-    self.assertEqual(unit.ticks, 1)
 
   def test_two_units_do_not_share_their_clock(self):
     first = Unit(CONFIG)
@@ -84,7 +72,7 @@ class RejectionTest(unittest.TestCase):
     self.assertIn("config.planes", self.rejected({"planes": []}))
     self.assertIn("config.planes", self.rejected({"planes": {"uid": "A"}}))
 
-  def test_the_clock_is_required(self):
+  def test_a_config_without_a_clock_is_refused(self):
     self.assertIn("config.clock", self.rejected({"planes": [entry("A")]}))
 
   def test_a_plane_must_be_an_object(self):

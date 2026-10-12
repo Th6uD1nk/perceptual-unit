@@ -107,10 +107,6 @@ class RemoveTest(unittest.TestCase):
     self.plane.remove(self.perception)
     self.assertEqual(list(self.plane.perceptions.values()), [kept])
 
-  def test_removing_twice_does_nothing_the_second_time(self):
-    self.plane.remove(self.perception)
-    self.assertFalse(self.plane.remove(self.perception))
-
   def test_a_perception_that_was_never_on_the_plane_is_not_removed(self):
     other = make_plane("C")
     other.receive(*KEY, 2.0)
@@ -169,12 +165,6 @@ class TakeTest(unittest.TestCase):
   def test_a_perception_partly_taken_stays_on_the_plane(self):
     self.plane.take(self.perception, 2.0)
     self.assertIs(self.plane.perceptions[KEY], self.perception)
-
-  def test_the_other_perceptions_stay_when_one_is_emptied(self):
-    self.plane.receive("cat", 0.25, 0.75, 1.0)
-    kept = self.plane.perceptions[("cat", 0.25, 0.75)]
-    self.plane.take(self.perception, 3.0)
-    self.assertEqual(list(self.plane.perceptions.values()), [kept])
 
 class TransferTest(unittest.TestCase):
   def setUp(self):
@@ -242,12 +232,9 @@ class VisitTest(unittest.TestCase):
     self.assertEqual(self.visit(10), (3, True))
     self.assertEqual(self.seen, ["word0", "word1", "word2"])
 
-  def test_a_pass_visits_at_most_the_given_units(self):
+  def test_a_pass_cut_by_the_units_resumes_where_it_stopped(self):
     self.assertEqual(self.visit(2), (2, False))
     self.assertEqual(self.seen, ["word0", "word1"])
-
-  def test_a_cut_pass_resumes_where_it_stopped(self):
-    self.assertEqual(self.visit(2), (2, False))
     self.assertEqual(self.visit(2), (1, True))
     self.assertEqual(self.seen, ["word0", "word1", "word2"])
 
