@@ -1,5 +1,6 @@
 import json
 import sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 GUI_DIR = Path(__file__).resolve().parent
@@ -8,6 +9,31 @@ sys.path.insert(0, str(GUI_DIR.parent / "src"))
 from unit import Unit
 
 CONFIG_PATH = GUI_DIR / "config.json"
+PAGE_PATH = GUI_DIR / "index.html"
+HOST = "127.0.0.1"
 
 def load_unit(path=CONFIG_PATH):
   return Unit(json.loads(Path(path).read_text()))
+
+class Handler(BaseHTTPRequestHandler):
+  def do_GET(self):
+    if self.path == "/":
+      self.send_page()
+    else:
+      self.send_error(404)
+
+  def send_page(self):
+    body = PAGE_PATH.read_bytes()
+    self.send_response(200)
+    self.send_header("Content-Type", "text/html; charset=utf-8")
+    self.send_header("Content-Length", str(len(body)))
+    self.end_headers()
+    self.wfile.write(body)
+
+  def log_message(self, format, *args):
+    pass
+
+def make_server(unit, port):
+  server = ThreadingHTTPServer((HOST, port), Handler)
+  server.unit = unit
+  return server
