@@ -7,10 +7,10 @@ from cursor import Cursor
 from perception import Perception
 from plane import Plane
 
-def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625, step=0.25):
+def make_cursor(x, y, dx, dy, source=None, target=None, energy=0.0625, step=0.25, cooldown=0):
   source = source if source is not None else Plane({"uid": "A", "peak": 10.0})
   target = target if target is not None else Plane({"uid": "C", "peak": 10.0})
-  return Cursor(x, y, dx, dy, source, target, energy, step)
+  return Cursor(x, y, dx, dy, source, target, energy, step, cooldown)
 
 class CreationTest(unittest.TestCase):
   def test_the_direction_is_normalized(self):
@@ -31,13 +31,19 @@ class CreationTest(unittest.TestCase):
     plane = Plane({"uid": "A", "peak": 1.0})
     for energy in (0, -0.5):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy, 0.25)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, energy, 0.25, 0)
 
   def test_a_step_that_is_not_positive_is_refused(self):
     plane = Plane({"uid": "A", "peak": 1.0})
     for step in (0, -0.25):
       with self.assertRaises(ValueError):
-        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, step)
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, step, 0)
+
+  def test_a_cooldown_that_is_not_a_count_of_ticks_is_refused(self):
+    plane = Plane({"uid": "A", "peak": 1.0})
+    for cooldown in (-1, 1.5, "2", True, None):
+      with self.assertRaises(ValueError):
+        Cursor(0.5, 0.5, 1.0, 0.0, plane, plane, 0.0625, 0.25, cooldown)
 
   def test_a_position_on_the_edge_is_accepted(self):
     make_cursor(0.0, 1.0, 1.0, 0.0)
@@ -252,6 +258,63 @@ class RunTest(unittest.TestCase):
     self.ticks(1)
     self.assertEqual(self.target.perceptions[("first", 0.34375, 0.5)].energy, 0.0625)
     self.assertEqual(self.target.perceptions[("second", 0.375, 0.5)].energy, 0.0625)
+
+class CooldownTest(unittest.TestCase):
+  def setUp(self):
+    self.scheduler = Scheduler({"clock": {"tick": 1.0}})
+    self.source = Plane({"uid": "A", "peak": 10.0})
+    self.target = Plane({"uid": "C", "peak": 10.0})
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.perception = self.source.perceptions[("first", 0.5, 0.5)]
+    self.cursor = self.make(2)
+
+  def make(self, cooldown, target=None):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, target or self.target, cooldown=cooldown)
+    cursor.scheduler = self.scheduler
+    return cursor
+
+  def sweep(self, cursor=None):
+    cursor = cursor or self.cursor
+    cursor.x, cursor.y = 0.25, 0.5
+    cursor.advance(0.5)
+    self.source.visit(10, cursor.on_visit)
+    return cursor.finish(0.0)
+
+  def test_a_read_perception_is_marked_with_the_tick_of_its_reading(self):
+    self.scheduler.advance(3.0)
+    self.sweep()
+    self.assertTrue(self.perception.read)
+    self.assertEqual(self.perception.read_tick, 3)
+
+  def test_a_read_perception_is_not_touched_again_during_the_cooldown(self):
+    self.assertEqual(self.sweep(), 0.0625)
+    self.scheduler.advance(1.0)
+    self.assertEqual(self.sweep(), 0.0)
+    self.assertEqual(self.perception.energy, 0.0625)
+
+  def test_a_perception_is_touched_again_when_the_cooldown_is_over(self):
+    self.sweep()
+    self.scheduler.advance(2.0)
+    self.assertEqual(self.sweep(), 0.0625)
+    self.assertEqual(self.perception.read_tick, 2)
+
+  def test_a_cooldown_of_zero_never_blocks(self):
+    cursor = self.make(0)
+    self.assertEqual(self.sweep(cursor), 0.0625)
+    self.assertEqual(self.sweep(cursor), 0.0625)
+
+  def test_a_perception_whose_target_refused_the_energy_is_still_marked_read(self):
+    full = Plane({"uid": "C", "peak": 0.0625})
+    full.receive("first", 0.5, 0.5, 0.0625)
+    cursor = self.make(2, full)
+    self.assertEqual(self.sweep(cursor), 0.0)
+    self.assertTrue(self.perception.read)
+
+  def test_the_mark_is_shared_between_the_cursors_of_a_plane(self):
+    self.sweep()
+    other = self.make(2)
+    self.scheduler.advance(1.0)
+    self.assertEqual(self.sweep(other), 0.0)
 
 if __name__ == "__main__":
   unittest.main()

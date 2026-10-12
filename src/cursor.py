@@ -1,13 +1,15 @@
 import math
 
 class Cursor:
-  def __init__(self, x, y, dx, dy, source, target, energy, step):
+  def __init__(self, x, y, dx, dy, source, target, energy, step, cooldown):
     if not (0 <= x <= 1 and 0 <= y <= 1):
       raise ValueError("position: must be inside the plane")
     if energy <= 0:
       raise ValueError("energy: must be greater than 0")
     if step <= 0:
       raise ValueError("step: must be greater than 0")
+    if isinstance(cooldown, bool) or not isinstance(cooldown, int) or cooldown < 0:
+      raise ValueError("cooldown: must be an integer of at least 0")
     length = math.hypot(dx, dy)
     if length == 0:
       raise ValueError("direction: must not be null")
@@ -19,6 +21,7 @@ class Cursor:
     self.target = target
     self.energy = energy
     self.step = step
+    self.cooldown = cooldown
     self.scheduler = None
     self.segment = None
     self.hits = []
@@ -49,8 +52,14 @@ class Cursor:
       return False
     return distance_to_segment(perception.x, perception.y, start_x, start_y, end_x, end_y) <= radius
 
+  @property
+  def now(self):
+    return self.scheduler.ticks if self.scheduler is not None else 0
+
   def on_visit(self, perception):
-    if self.touches(perception):
+    if perception.read and self.now - perception.read_tick >= self.cooldown:
+      perception.read = False
+    if not perception.read and self.touches(perception):
       self.hits.append(perception)
 
   def finish(self, distance):
@@ -59,6 +68,8 @@ class Cursor:
     transferred = 0.0
     for perception in self.hits:
       transferred += self.source.transfer(perception, self.target, self.energy)
+      perception.read = True
+      perception.read_tick = self.now
     self.hits = []
     self.advance(distance)
     return transferred
