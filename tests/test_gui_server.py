@@ -11,7 +11,7 @@ import support
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "gui"))
 
-from server import PAGE_PATH, TOKEN_ENERGY, load_unit, make_server
+from server import PAGE_PATH, TOKEN_ENERGY, load_unit, make_server, step_clock
 
 class LoadUnitTest(unittest.TestCase):
   def test_the_unit_of_the_gui_has_one_plane_with_its_peak(self):
@@ -83,6 +83,18 @@ class ServerTest(unittest.TestCase):
     self.server.lock.release()
     thread.join(2)
     self.assertEqual(statuses, [200])
+
+  def test_stepping_the_clock_advances_the_unit_and_the_state_shows_it(self):
+    self.assertEqual(step_clock(self.server, 12.0), 3)
+    self.assertEqual(self.server.unit.ticks, 3)
+    with urllib.request.urlopen(self.base + "/api/state") as response:
+      self.assertEqual(json.loads(response.read())["ticks"], 3)
+
+  def test_a_refused_step_releases_the_lock(self):
+    with self.assertRaises(ValueError):
+      step_clock(self.server, -1.0)
+    self.assertTrue(self.server.lock.acquire(blocking=False))
+    self.server.lock.release()
 
   def test_an_unknown_route_is_not_found(self):
     with self.assertRaises(urllib.error.HTTPError) as caught:

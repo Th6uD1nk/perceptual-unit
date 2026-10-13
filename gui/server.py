@@ -58,6 +58,10 @@ class Handler(BaseHTTPRequestHandler):
   def log_message(self, format, *args):
     pass
 
+def step_clock(server, elapsed_ms):
+  with server.lock:
+    return server.unit.update(elapsed_ms)
+
 def make_server(unit, port):
   server = ThreadingHTTPServer((HOST, port), Handler)
   server.unit = unit
