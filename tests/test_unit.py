@@ -74,6 +74,37 @@ class GeneratorTest(unittest.TestCase):
     first.generator.random()
     self.assertEqual(second.generator.random(), expected)
 
+class CursorsTest(unittest.TestCase):
+  CONFIG = make_config([
+    entry("A", transfers=[transfer("C", energy=0.0625, step=0.25, cycle=10), transfer("D", energy=0.125, step=0.5, cycle=20)]),
+    entry("C", transfers=[transfer("A", energy=0.03125, step=0.125, cycle=30)]),
+    entry("D")
+  ])
+
+  def test_the_unit_creates_one_cursor_per_transfer_in_the_order_of_the_config(self):
+    unit = Unit(self.CONFIG)
+    self.assertEqual([(cursor.source.uid, cursor.target.uid) for cursor in unit.cursors], [("A", "C"), ("A", "D"), ("C", "A")])
+
+  def test_the_cursors_hold_the_planes_of_the_unit_and_not_copies(self):
+    unit = Unit(self.CONFIG)
+    for cursor, (source, target) in zip(unit.cursors, [("A", "C"), ("A", "D"), ("C", "A")]):
+      self.assertIs(cursor.source, unit.planes[source])
+      self.assertIs(cursor.target, unit.planes[target])
+
+  def test_each_cursor_receives_the_settings_of_its_own_transfer(self):
+    unit = Unit(self.CONFIG)
+    self.assertEqual([cursor.energy for cursor in unit.cursors], [0.0625, 0.125, 0.03125])
+    self.assertEqual([cursor.step for cursor in unit.cursors], [0.25, 0.5, 0.125])
+    self.assertEqual([cursor.cycle for cursor in unit.cursors], [10, 20, 30])
+
+  def test_all_the_cursors_share_the_generator_of_the_unit(self):
+    unit = Unit(self.CONFIG)
+    for cursor in unit.cursors:
+      self.assertIs(cursor.generator, unit.generator)
+
+  def test_a_unit_without_transfers_has_no_cursor(self):
+    self.assertEqual(Unit(CONFIG).cursors, [])
+
 class FeedTest(unittest.TestCase):
   def test_a_token_becomes_a_perception_of_the_first_plane_at_its_transcription(self):
     unit = Unit(CONFIG)

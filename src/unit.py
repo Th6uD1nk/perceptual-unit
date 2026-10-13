@@ -1,5 +1,6 @@
 import copy
 
+from cursor import Cursor
 from generator import Generator
 from plane import Plane
 from scheduler import Scheduler
@@ -13,6 +14,11 @@ class Unit:
     self.planes = {entry["uid"]: Plane(entry) for entry in self.config["planes"]}
     self.scheduler = Scheduler(self.config)
     self.generator = Generator(self.config["random"]["seed"])
+    self.cursors = [
+      Cursor(transfer, self.planes[entry["uid"]], self.planes[transfer["target"]], self.generator)
+      for entry in self.config["planes"]
+      for transfer in entry["transfers"]
+    ]
 
   @property
   def ticks(self):
