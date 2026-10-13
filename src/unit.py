@@ -19,6 +19,8 @@ class Unit:
       for entry in self.config["planes"]
       for transfer in entry["transfers"]
     ]
+    for cursor in self.cursors:
+      cursor.restart()
 
   @property
   def ticks(self):

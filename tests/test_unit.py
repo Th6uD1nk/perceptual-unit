@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 import unittest
 
 import support
@@ -81,6 +82,11 @@ class CursorsTest(unittest.TestCase):
     entry("D")
   ])
 
+  def starts(self, seed):
+    config = copy.deepcopy(self.CONFIG)
+    config["random"]["seed"] = seed
+    return [(cursor.x, cursor.y, cursor.dx, cursor.dy) for cursor in Unit(config).cursors]
+
   def test_the_unit_creates_one_cursor_per_transfer_in_the_order_of_the_config(self):
     unit = Unit(self.CONFIG)
     self.assertEqual([(cursor.source.uid, cursor.target.uid) for cursor in unit.cursors], [("A", "C"), ("A", "D"), ("C", "A")])
@@ -101,6 +107,24 @@ class CursorsTest(unittest.TestCase):
     unit = Unit(self.CONFIG)
     for cursor in unit.cursors:
       self.assertIs(cursor.generator, unit.generator)
+
+  def test_the_cursors_start_inside_the_plane_with_a_unit_direction(self):
+    for x, y, dx, dy in self.starts(1):
+      self.assertTrue(0.0 <= x <= 1.0)
+      self.assertTrue(0.0 <= y <= 1.0)
+      self.assertAlmostEqual(math.hypot(dx, dy), 1.0)
+
+  def test_the_same_seed_gives_the_same_starts_and_another_seed_other_starts(self):
+    self.assertEqual(self.starts(1), self.starts(1))
+    self.assertNotEqual(self.starts(1), self.starts(2))
+
+  def test_the_cursors_draw_their_start_one_after_the_other_in_the_generator_of_the_unit(self):
+    generator = Generator(1)
+    expected = []
+    for _ in range(3):
+      x, y, angle = generator.random(), generator.random(), generator.random() * math.tau
+      expected.append((x, y))
+    self.assertEqual([(x, y) for x, y, dx, dy in self.starts(1)], expected)
 
   def test_a_unit_without_transfers_has_no_cursor(self):
     self.assertEqual(Unit(CONFIG).cursors, [])
