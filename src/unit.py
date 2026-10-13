@@ -20,7 +20,7 @@ class Unit:
     self.relax = {entry["uid"]: entry["relax"] for entry in self.config["planes"]}
     self.generator = Generator(self.config["random"]["seed"])
     self.cursors = [
-      Cursor(transfer, self.planes[entry["uid"]], self.planes[transfer["target"]], self.generator)
+      Cursor(transfer, self.planes[entry["uid"]], self.planes.get(transfer["target"]), self.generator)
       for entry in self.config["planes"]
       for transfer in entry["transfers"]
     ]

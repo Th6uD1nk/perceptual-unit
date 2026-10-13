@@ -611,6 +611,28 @@ class BudgetRunTest(unittest.TestCase):
     cursor.finish(1)
     self.assertEqual(cursor.moved_tick, 5)
 
+class DrainTest(unittest.TestCase):
+  def setUp(self):
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
+    self.cursor = Cursor(make_config(), self.source, None, Generator(1))
+    self.cursor.place(0.25, 0.5, 1.0, 0.0)
+    self.cursor.advance(0.5)
+
+  def test_a_cursor_without_target_reads_a_perception_and_the_energy_is_lost(self):
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.source.visit(10, self.cursor.on_visit)
+    self.assertEqual(self.cursor.finish(1), 0.0625)
+    self.assertEqual(self.source.perceptions[("first", 0.5, 0.5, 0)].energy, 0.0625)
+
+  def test_a_perception_emptied_by_a_cursor_without_target_leaves_the_plane(self):
+    self.source.receive("first", 0.5, 0.5, 0.0625)
+    self.source.visit(10, self.cursor.on_visit)
+    self.cursor.finish(1)
+    self.assertEqual(self.source.perceptions, {})
+
+  def test_the_state_gives_no_target_for_a_cursor_without_target(self):
+    self.assertIsNone(self.cursor.state()["target"])
+
 class StateTest(unittest.TestCase):
   def test_the_state_gives_the_planes_the_position_and_the_direction_without_segment_before_the_first_move(self):
     cursor = make_cursor(0.25, 0.5, 3.0, 4.0)

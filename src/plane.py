@@ -94,6 +94,8 @@ class Plane:
     if self.perceptions.get(perception.key) is not perception:
       return 0.0
     offered = min(amount, perception.energy)
+    if target is None:
+      return self.take(perception, offered)
     accepted = target.receive(perception.hash, perception.x, perception.y, offered)
     return self.take(perception, accepted)
 

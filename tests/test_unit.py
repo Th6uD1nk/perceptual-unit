@@ -96,6 +96,16 @@ class CursorsTest(unittest.TestCase):
       self.assertIs(cursor.source, unit.planes[source])
       self.assertIs(cursor.target, unit.planes[target])
 
+  def test_a_transfer_to_null_gives_a_cursor_without_target_plane_that_empties_its_source(self):
+    unit = Unit(make_config([entry("A", peak=4.0, transfers=[transfer(None, energy=0.03125, step=0.25, cycle=1000)])], tick=1.0))
+    self.assertIsNone(unit.cursors[0].target)
+    self.assertIsNone(unit.state()["cursors"][0]["target"])
+    unit.planes["A"].receive("house", 0.5, 0.5, 0.0625)
+    unit.cursors[0].place(0.1, 0.5, 1.0, 0.0)
+    for _ in range(40):
+      unit.update(1.0)
+    self.assertLess(sum(p.energy for p in unit.planes["A"].perceptions.values()), 0.0625)
+
   def test_each_cursor_receives_the_settings_of_its_own_transfer(self):
     unit = Unit(self.CONFIG)
     self.assertEqual([cursor.energy for cursor in unit.cursors], [0.0625, 0.125, 0.03125])
@@ -511,9 +521,12 @@ class RejectionTest(unittest.TestCase):
     self.assertIn("config.planes[0].transfers[0].target", self.rejected(make_config([entry("A", transfers=[plane]), entry("C")])))
 
   def test_the_target_of_a_transfer_must_be_the_uid_of_an_existing_plane(self):
-    for target in ("Z", 3, None):
+    for target in ("Z", 3, True, ["C"]):
       config = make_config([entry("A", transfers=[transfer(target)]), entry("C")])
       self.assertIn("config.planes[0].transfers[0].target", self.rejected(config), repr(target))
+
+  def test_the_target_of_a_transfer_can_be_null_to_lose_the_energy(self):
+    Unit(make_config([entry("A", transfers=[transfer(None)])]))
 
   def test_a_plane_cannot_transfer_to_itself(self):
     config = make_config([entry("A", transfers=[transfer("A")])])

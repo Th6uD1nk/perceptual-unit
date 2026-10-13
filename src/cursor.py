@@ -151,7 +151,7 @@ class Cursor:
   def state(self):
     return {
       "source": self.source.uid,
-      "target": self.target.uid,
+      "target": self.target.uid if self.target is not None else None,
       "x": self.x,
       "y": self.y,
       "dx": self.dx,

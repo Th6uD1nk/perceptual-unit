@@ -37,8 +37,8 @@ def validate_transfers(entry, path, known):
     if "target" not in transfer:
       fail(f"{where}.target", "missing")
     target = transfer["target"]
-    if not isinstance(target, str) or target not in known:
-      fail(f"{where}.target", "must be the uid of an existing plane")
+    if target is not None and (not isinstance(target, str) or target not in known):
+      fail(f"{where}.target", "must be null or the uid of an existing plane")
     if target == entry["uid"]:
       fail(f"{where}.target", "must be another plane")
     validate_cursor(transfer, where)

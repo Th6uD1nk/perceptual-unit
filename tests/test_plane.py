@@ -402,6 +402,20 @@ class TransferTest(unittest.TestCase):
     self.assertEqual(self.source.transfer(self.perception, self.target, 2.0), 0.0)
     self.assertEqual(self.perception.energy, 3.0)
 
+  def test_a_transfer_to_nothing_takes_the_energy_and_loses_it(self):
+    self.assertEqual(self.source.transfer(self.perception, None, 2.0), 2.0)
+    self.assertEqual(self.perception.energy, 1.0)
+    self.assertEqual(self.energy(self.target), 0.0)
+
+  def test_a_transfer_to_nothing_larger_than_the_energy_empties_and_removes_the_perception(self):
+    self.assertEqual(self.source.transfer(self.perception, None, 5.0), 3.0)
+    self.assertNotIn(KEY, self.source.perceptions)
+    self.assertEqual(self.source.moments.count(0), 0)
+
+  def test_a_transfer_to_nothing_of_a_perception_that_left_the_plane_gives_nothing(self):
+    self.source.remove(self.perception)
+    self.assertEqual(self.source.transfer(self.perception, None, 1.0), 0.0)
+
   def test_the_transfer_feeds_an_existing_perception_of_the_target(self):
     self.target.receive(*POINT, 1.0)
     self.source.transfer(self.perception, self.target, 2.0)
