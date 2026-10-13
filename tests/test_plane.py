@@ -99,7 +99,7 @@ class PeakTest(unittest.TestCase):
 class MomentTest(unittest.TestCase):
   def setUp(self):
     self.clock = SimpleNamespace(moment=0)
-    self.moments = Moments(self.clock)
+    self.moments = Moments(self.clock, 2)
     self.plane = make_plane(moments=self.moments)
 
   def test_the_same_triplet_received_in_two_moments_gives_two_perceptions_with_their_own_energy(self):
@@ -126,7 +126,7 @@ class MomentTest(unittest.TestCase):
 class CountTest(unittest.TestCase):
   def setUp(self):
     self.clock = SimpleNamespace(moment=0)
-    self.moments = Moments(self.clock)
+    self.moments = Moments(self.clock, 2)
     self.plane = make_plane(moments=self.moments)
 
   def test_a_reception_that_creates_a_perception_counts_it_and_a_reinforcement_does_not(self):
@@ -162,7 +162,7 @@ class CountTest(unittest.TestCase):
 class MoveTest(unittest.TestCase):
   def setUp(self):
     self.clock = SimpleNamespace(moment=0)
-    self.moments = Moments(self.clock)
+    self.moments = Moments(self.clock, 2)
     self.plane = make_plane(peak=4.0, moments=self.moments)
     self.plane.receive(*POINT, 1.0)
     self.perception = self.plane.perceptions[KEY]
@@ -230,7 +230,7 @@ class MoveTest(unittest.TestCase):
 class MomentIndexTest(unittest.TestCase):
   def setUp(self):
     self.clock = SimpleNamespace(moment=0)
-    self.plane = make_plane(peak=4.0, moments=Moments(self.clock))
+    self.plane = make_plane(peak=4.0, moments=Moments(self.clock, 2))
 
   def test_the_perceptions_of_a_moment_are_listed_without_those_of_the_others(self):
     self.plane.receive("a", 0.1, 0.1, 1.0)

@@ -7,7 +7,7 @@ from scheduler import Scheduler
 class CurrentTest(unittest.TestCase):
   def test_the_current_moment_follows_the_moment_of_the_scheduler(self):
     scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0, "moment": 2}})
-    moments = Moments(scheduler)
+    moments = Moments(scheduler, 2)
     self.assertEqual(moments.current(), 0)
     scheduler.advance(2.0)
     self.assertEqual(moments.current(), 1)
@@ -177,6 +177,76 @@ class TotalTest(unittest.TestCase):
     answer = self.moments.between("a", "c")
     answer["b"] = 9
     self.assertEqual(self.moments.between("a", "c"), {"b": 1})
+
+class LinkTest(unittest.TestCase):
+  def test_the_words_within_the_window_of_an_event_are_linked_and_the_others_are_not(self):
+    moments = support.moments(window=2)
+    moments.record(["a", "b", "c", "d"])
+    links = {pair: moments.link(pair[0], pair[1]) for pair in ("ab", "ac", "bc", "bd", "cd", "ad")}
+    self.assertEqual(links, {"ab": 1, "ac": 1, "bc": 1, "bd": 1, "cd": 1, "ad": 0})
+
+  def test_a_window_of_zero_links_all_the_words_of_the_event(self):
+    moments = support.moments(window=0)
+    moments.record(["a", "b", "c", "d"])
+    self.assertEqual(moments.link("a", "d"), 1)
+
+  def test_a_pair_that_appears_several_times_in_an_event_is_linked_once_and_a_word_is_never_linked_to_itself(self):
+    moments = support.moments()
+    moments.record(["a", "b", "a", "b"])
+    moments.record(["c", "c"])
+    self.assertEqual(moments.link("a", "b"), 1)
+    self.assertEqual(moments.link("c", "c"), 0)
+    self.assertEqual(moments.link_totals, {("a", "b"): 1})
+
+  def test_the_link_is_the_same_in_both_directions_and_adds_up_from_event_to_event(self):
+    moments = support.moments()
+    moments.record(["a", "b"])
+    moments.record(["b", "a"])
+    self.assertEqual((moments.link("a", "b"), moments.link("b", "a")), (2, 2))
+
+  def test_each_moment_has_its_own_links_and_the_link_adds_up_the_living_moments(self):
+    moments = support.moments()
+    moments.born(0)
+    moments.record(["a", "b"])
+    moments.scheduler.moment = 1
+    moments.born(1)
+    moments.record(["a", "b"])
+    moments.record(["a", "c"])
+    self.assertEqual(moments.links_of(0), {("a", "b"): 1})
+    self.assertEqual(moments.links_of(1), {("a", "b"): 1, ("a", "c"): 1})
+    self.assertEqual(moments.link("a", "b"), 2)
+
+  def test_the_release_of_a_moment_takes_off_only_the_links_it_brought(self):
+    moments = support.moments()
+    moments.born(0)
+    moments.record(["a", "b"])
+    moments.scheduler.moment = 1
+    moments.born(1)
+    moments.record(["a", "b"])
+    moments.died(0)
+    self.assertEqual(moments.link("a", "b"), 1)
+    self.assertEqual(moments.links_of(0), {})
+
+  def test_nothing_is_left_when_every_moment_is_released(self):
+    moments = support.moments()
+    moments.born(0)
+    moments.record(["a", "b"])
+    moments.scheduler.moment = 1
+    moments.died(0)
+    self.assertEqual(moments.link_totals, {})
+
+  def test_a_moment_that_closes_without_perception_takes_its_links_off_at_the_change_of_moment(self):
+    moments = support.moments()
+    moments.record(["a", "b"])
+    moments.scheduler.moment = 1
+    moments.current()
+    self.assertEqual(moments.link_totals, {})
+
+  def test_the_links_given_back_are_independent_of_the_stored_ones(self):
+    moments = support.moments()
+    moments.record(["a", "b"])
+    moments.links_of(0)[("a", "b")] = 9
+    self.assertEqual(moments.links_of(0), {("a", "b"): 1})
 
 class ReleaseTest(unittest.TestCase):
   def setUp(self):

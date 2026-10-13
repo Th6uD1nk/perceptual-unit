@@ -15,7 +15,7 @@ class Unit:
     validate_config(config)
     self.config = copy.deepcopy(config)
     self.scheduler = Scheduler(self.config)
-    self.moments = Moments(self.scheduler)
+    self.moments = Moments(self.scheduler, self.config["memory"]["window"])
     self.planes = {entry["uid"]: Plane(entry, self.moments) for entry in self.config["planes"]}
     self.generator = Generator(self.config["random"]["seed"])
     self.cursors = [

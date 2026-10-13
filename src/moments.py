@@ -1,10 +1,12 @@
 class Moments:
-  def __init__(self, scheduler):
+  def __init__(self, scheduler, window):
     self.scheduler = scheduler
+    self.window = window
     self.seen = scheduler.moment
     self.counts = {}
     self.recorded = {}
     self.totals = {}
+    self.link_totals = {}
 
   def current(self):
     moment = self.scheduler.moment
@@ -43,10 +45,14 @@ class Moments:
           del total[middle]
       if not total:
         del self.totals[neighbors]
+    for pair, number in entry["links"].items():
+      self.link_totals[pair] -= number
+      if not self.link_totals[pair]:
+        del self.link_totals[pair]
 
   def record(self, hashes):
     event = list(hashes)
-    entry = self.recorded.setdefault(self.current(), {"events": [], "contexts": {}})
+    entry = self.recorded.setdefault(self.current(), {"events": [], "contexts": {}, "links": {}})
     entry["events"].append(event)
     for index, middle in enumerate(event):
       left = event[index - 1] if index > 0 else None
@@ -55,7 +61,23 @@ class Moments:
       middles[middle] = middles.get(middle, 0) + 1
       total = self.totals.setdefault((left, right), {})
       total[middle] = total.get(middle, 0) + 1
+    made = set()
+    for first in range(len(event)):
+      stop = len(event) if self.window == 0 else min(len(event), first + 1 + self.window)
+      for second in range(first + 1, stop):
+        if event[first] != event[second]:
+          made.add(tuple(sorted((event[first], event[second]))))
+    for pair in made:
+      entry["links"][pair] = entry["links"].get(pair, 0) + 1
+      self.link_totals[pair] = self.link_totals.get(pair, 0) + 1
     return list(event)
+
+  def link(self, first, second):
+    return self.link_totals.get(tuple(sorted((first, second))), 0)
+
+  def links_of(self, moment):
+    self.current()
+    return dict(self.recorded.get(moment, {"links": {}})["links"])
 
   def events(self, moment):
     self.current()

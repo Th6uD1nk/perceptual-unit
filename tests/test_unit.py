@@ -272,6 +272,13 @@ class FlowTest(unittest.TestCase):
     a, b = token_hash("a"), token_hash("b")
     self.assertEqual(unit.moments.contexts(0), {(None, b): {a: 1}, (a, None): {b: 1}})
 
+  def test_the_flow_links_the_words_within_the_window_of_the_config_in_the_moment(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b", "c", "d"], 1.0)
+    hashes = [token_hash(word) for word in "abcd"]
+    self.assertEqual(unit.moments.link(hashes[0], hashes[2]), 1)
+    self.assertEqual(unit.moments.link(hashes[0], hashes[3]), 0)
+
   def test_a_flow_of_another_moment_records_its_event_in_that_moment(self):
     unit = Unit(make_config([entry("A", peak=4.0)], tick=1.0, moment=2))
     unit.feed_flow(["a"], 1.0)
