@@ -9,20 +9,29 @@
       <input id="token" type="text" autocomplete="off" placeholder="token">
       <button id="send">Send</button>
     </div>
-    <canvas id="plane" width="400" height="400"></canvas>
+    <table>
+      <tr>
+        <td>A</td>
+        <td>C</td>
+      </tr>
+      <tr>
+        <td><canvas id="plane-a" width="400" height="400"></canvas></td>
+        <td><canvas id="plane-c" width="400" height="400"></canvas></td>
+      </tr>
+    </table>
     <script>
       const field = document.getElementById("token");
       const button = document.getElementById("send");
-      const canvas = document.getElementById("plane");
-      const context = canvas.getContext("2d");
+      const canvasA = document.getElementById("plane-a");
+      const canvasC = document.getElementById("plane-c");
 
-      function drawFrame() {
+      function drawFrame(context, canvas) {
         context.strokeStyle = "black";
         context.lineWidth = 1;
         context.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
       }
 
-      function drawPerception(perception) {
+      function drawPerception(context, canvas, perception) {
         const radius = Math.max(1, perception.energy * canvas.width);
         context.beginPath();
         context.arc(perception.x * canvas.width, perception.y * canvas.height, radius, 0, 2 * Math.PI);
@@ -30,10 +39,18 @@
         context.fill();
       }
 
-      function draw(state) {
+      function drawPlane(canvas, plane) {
+        const context = canvas.getContext("2d");
         context.clearRect(0, 0, canvas.width, canvas.height);
-        drawFrame();
-        state.planes[0].perceptions.forEach(drawPerception);
+        drawFrame(context, canvas);
+        plane.perceptions.forEach(function (perception) {
+          drawPerception(context, canvas, perception);
+        });
+      }
+
+      function draw(state) {
+        drawPlane(canvasA, state.planes[0]);
+        drawPlane(canvasC, state.planes[1]);
       }
 
       async function refresh() {
@@ -61,7 +78,7 @@
       });
 
       refresh();
-      setInterval(refresh, 500);
+      setInterval(refresh, 100);
     </script>
   </body>
 </html>
