@@ -21,6 +21,7 @@ class Unit:
     ]
     for cursor in self.cursors:
       cursor.restart()
+      cursor.start(self.scheduler)
 
   @property
   def ticks(self):

@@ -126,6 +126,17 @@ class CursorsTest(unittest.TestCase):
       expected.append((x, y))
     self.assertEqual([(x, y) for x, y, dx, dy in self.starts(1)], expected)
 
+  def test_the_cursors_wait_for_the_first_tick_before_moving(self):
+    for cursor in Unit(self.CONFIG).cursors:
+      self.assertIsNone(cursor.segment)
+
+  def test_the_cursors_run_at_every_tick_of_the_unit(self):
+    unit = Unit(self.CONFIG)
+    unit.update(12.0)
+    for cursor in unit.cursors:
+      self.assertEqual(cursor.moved_tick, 3)
+      self.assertIsNotNone(cursor.segment)
+
   def test_a_unit_without_transfers_has_no_cursor(self):
     self.assertEqual(Unit(CONFIG).cursors, [])
 
