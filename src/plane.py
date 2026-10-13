@@ -87,9 +87,10 @@ class Plane:
     accepted = target.receive(perception.hash, perception.x, perception.y, offered)
     return self.take(perception, accepted)
 
-  def register(self, scheduler, step, end):
+  def register(self, scheduler, step, end=None):
     self.steps.append(step)
-    self.ends.append(end)
+    if end is not None:
+      self.ends.append(end)
     if self.scheduler is None:
       self.scheduler = scheduler
       scheduler.submit(self.run)

@@ -538,6 +538,12 @@ class RunTest(unittest.TestCase):
     with self.assertRaises(ValueError):
       self.plane.run(10)
 
+  def test_the_end_of_a_pass_is_optional(self):
+    self.plane.register(self.scheduler, lambda perception: self.seen.append(perception.hash))
+    self.scheduler.advance(1.0)
+    self.assertEqual(len(self.seen), 4)
+    self.assertEqual(self.plane.ends, [])
+
   def test_a_run_gives_back_the_number_of_perceptions_it_visited(self):
     self.register()
     self.assertEqual(self.plane.run(10), 4)
