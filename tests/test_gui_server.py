@@ -14,10 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "gui"))
 from server import PAGE_PATH, TOKEN_ENERGY, load_unit, make_server, step_clock
 
 class LoadUnitTest(unittest.TestCase):
-  def test_the_unit_of_the_gui_has_one_plane_with_its_peak(self):
+  def test_the_unit_of_the_gui_has_the_planes_a_and_c_and_a_cursor_from_a_to_c(self):
     unit = load_unit()
-    self.assertEqual(list(unit.planes), ["A"])
-    self.assertEqual(unit.planes["A"].peak, 0.25)
+    self.assertEqual(list(unit.planes), ["A", "C"])
+    self.assertEqual([(cursor.source.uid, cursor.target.uid) for cursor in unit.cursors], [("A", "C")])
 
   def test_the_unit_is_built_from_the_given_config_file(self):
     config = {"scheduler": {"tick": 1.0, "budget": 0}, "random": {"seed": 1}, "planes": [{"uid": "X", "peak": 1.0, "transfers": []}, {"uid": "Y", "peak": 2.0, "transfers": []}]}
@@ -85,7 +85,8 @@ class ServerTest(unittest.TestCase):
     self.assertEqual(statuses, [200])
 
   def test_stepping_the_clock_advances_the_unit_and_the_state_shows_it(self):
-    self.assertEqual(step_clock(self.server, 12.0), 3)
+    tick_ms = self.server.unit.scheduler.tick_us / 1000.0
+    self.assertEqual(step_clock(self.server, 3 * tick_ms), 3)
     self.assertEqual(self.server.unit.ticks, 3)
     with urllib.request.urlopen(self.base + "/api/state") as response:
       self.assertEqual(json.loads(response.read())["ticks"], 3)
