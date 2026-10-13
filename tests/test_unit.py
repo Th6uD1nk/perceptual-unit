@@ -206,6 +206,51 @@ class FeedTest(unittest.TestCase):
         unit.feed(token, 1.0)
     self.assertEqual(unit.planes["A"].perceptions, {})
 
+class FlowTest(unittest.TestCase):
+  def perception(self, unit, token, moment=0):
+    x, y = token_position(token)
+    return unit.planes["A"].perceptions[(token_hash(token), x, y, moment)]
+
+  def test_each_word_of_a_flow_becomes_a_perception_of_the_first_plane(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    self.assertEqual([self.perception(unit, token).energy for token in ("a", "b", "c")], [1.0, 1.0, 1.0])
+    self.assertEqual(len(unit.planes["A"].perceptions), 3)
+    self.assertEqual(unit.planes["C"].perceptions, {})
+    self.assertEqual(unit.planes["D"].perceptions, {})
+
+  def test_a_word_repeated_in_a_flow_reinforces_its_perception(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b", "a"], 1.0)
+    self.assertEqual(len(unit.planes["A"].perceptions), 2)
+    self.assertEqual(self.perception(unit, "a").energy, 2.0)
+
+  def test_the_event_of_the_flow_holds_the_hashes_in_order_with_their_duplicates(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b", "a"], 1.0)
+    self.assertEqual(unit.moments.events(0), [[token_hash("a"), token_hash("b"), token_hash("a")]])
+
+  def test_a_flow_of_another_moment_records_its_event_in_that_moment(self):
+    unit = Unit(make_config([entry("A", peak=4.0)], tick=1.0, moment=2))
+    unit.feed_flow(["a"], 1.0)
+    unit.update(2.0)
+    unit.feed_flow(["b"], 1.0)
+    self.assertEqual(unit.moments.events(0), [[token_hash("a")]])
+    self.assertEqual(unit.moments.events(1), [[token_hash("b")]])
+
+  def test_the_flow_gives_back_the_energy_accepted_for_each_word(self):
+    unit = Unit(CONFIG)
+    self.assertEqual(unit.feed_flow(["a", "b"], 6.0), [4.0, 4.0])
+    self.assertEqual(Unit(CONFIG).feed_flow(["a", "a"], 3.0), [3.0, 1.0])
+
+  def test_an_invalid_flow_is_refused_without_any_perception_or_event(self):
+    unit = Unit(CONFIG)
+    for tokens in ([], "text", ["a", ""], ["a", 3], [None]):
+      with self.assertRaises(ValueError, msg=repr(tokens)):
+        unit.feed_flow(tokens, 1.0)
+    self.assertEqual(unit.planes["A"].perceptions, {})
+    self.assertEqual(unit.moments.events(0), [])
+
 class StateTest(unittest.TestCase):
   def test_the_state_gives_the_ticks_and_the_planes_in_the_order_of_the_config(self):
     unit = Unit(CONFIG)

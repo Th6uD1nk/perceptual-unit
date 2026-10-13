@@ -38,6 +38,18 @@ class Unit:
     x, y = token_position(token)
     return next(iter(self.planes.values())).receive(token_hash(token), x, y, energy)
 
+  def feed_flow(self, tokens, energy):
+    if not isinstance(tokens, list) or not tokens or any(not isinstance(token, str) or not token for token in tokens):
+      raise ValueError("tokens: must be a non-empty list of non-empty strings")
+    plane = next(iter(self.planes.values()))
+    hashes = [token_hash(token) for token in tokens]
+    accepted = []
+    for token, hash_ in zip(tokens, hashes):
+      x, y = token_position(token)
+      accepted.append(plane.receive(hash_, x, y, energy))
+    self.moments.record(hashes)
+    return accepted
+
   def state(self):
     return {
       "ticks": self.ticks,
