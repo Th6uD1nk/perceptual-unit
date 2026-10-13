@@ -1,6 +1,7 @@
 import json
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -14,6 +15,7 @@ PAGE_PATH = GUI_DIR / "index.html"
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8100
 TOKEN_ENERGY = 0.0625
+CLOCK_INTERVAL_MS = 20
 
 def load_unit(path=CONFIG_PATH):
   return Unit(json.loads(Path(path).read_text()))
@@ -62,6 +64,19 @@ def step_clock(server, elapsed_ms):
   with server.lock:
     return server.unit.update(elapsed_ms)
 
+def start_clock(server, interval_ms):
+  stop = threading.Event()
+
+  def run():
+    last = time.monotonic()
+    while not stop.wait(interval_ms / 1000.0):
+      now = time.monotonic()
+      step_clock(server, (now - last) * 1000.0)
+      last = now
+
+  threading.Thread(target=run, daemon=True).start()
+  return stop
+
 def make_server(unit, port):
   server = ThreadingHTTPServer((HOST, port), Handler)
   server.unit = unit
@@ -71,12 +86,14 @@ def make_server(unit, port):
 def main(arguments):
   port = int(arguments[0]) if arguments else DEFAULT_PORT
   server = make_server(load_unit(), port)
+  stop_clock = start_clock(server, CLOCK_INTERVAL_MS)
   print(f"Serving the perceptual unit on http://{HOST}:{port}")
   try:
     server.serve_forever()
   except KeyboardInterrupt:
     pass
   finally:
+    stop_clock.set()
     server.server_close()
 
 if __name__ == "__main__":
