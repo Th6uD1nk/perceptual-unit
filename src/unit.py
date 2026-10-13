@@ -37,4 +37,8 @@ class Unit:
     return next(iter(self.planes.values())).receive(token_hash(token), x, y, energy)
 
   def state(self):
-    return {"ticks": self.ticks, "planes": [plane.state() for plane in self.planes.values()]}
+    return {
+      "ticks": self.ticks,
+      "planes": [plane.state() for plane in self.planes.values()],
+      "cursors": [cursor.state() for cursor in self.cursors]
+    }

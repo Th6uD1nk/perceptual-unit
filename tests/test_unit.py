@@ -208,9 +208,20 @@ class StateTest(unittest.TestCase):
     self.assertEqual(planes["C"]["perceptions"], [])
     self.assertEqual([entry["hash"] for entry in planes["D"]["perceptions"]], ["cat"])
 
+  def test_the_state_lists_the_cursors_in_the_order_of_their_creation(self):
+    unit = Unit(CursorsTest.CONFIG)
+    unit.update(8.0)
+    cursors = unit.state()["cursors"]
+    self.assertEqual([(cursor["source"], cursor["target"]) for cursor in cursors], [("A", "C"), ("A", "D"), ("C", "A")])
+    self.assertEqual(cursors[0], unit.cursors[0].state())
+
+  def test_a_unit_without_transfers_has_no_cursor_in_its_state(self):
+    self.assertEqual(Unit(CONFIG).state()["cursors"], [])
+
   def test_the_state_can_be_written_as_json(self):
-    unit = Unit(CONFIG)
+    unit = Unit(CursorsTest.CONFIG)
     unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
+    unit.update(8.0)
     self.assertEqual(json.loads(json.dumps(unit.state())), unit.state())
 
   def test_reading_the_state_changes_nothing_and_gives_the_same_result(self):
