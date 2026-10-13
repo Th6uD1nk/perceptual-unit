@@ -39,18 +39,38 @@
         context.fill();
       }
 
-      function drawPlane(canvas, plane) {
+      function drawCursor(context, canvas, cursor) {
+        context.strokeStyle = "navy";
+        context.lineWidth = 1;
+        if (cursor.segment) {
+          context.beginPath();
+          context.moveTo(cursor.segment[0] * canvas.width, cursor.segment[1] * canvas.height);
+          context.lineTo(cursor.segment[2] * canvas.width, cursor.segment[3] * canvas.height);
+          context.stroke();
+        }
+        context.fillStyle = "navy";
+        context.beginPath();
+        context.arc(cursor.x * canvas.width, cursor.y * canvas.height, 3, 0, 2 * Math.PI);
+        context.fill();
+      }
+
+      function drawPlane(canvas, plane, cursors) {
         const context = canvas.getContext("2d");
         context.clearRect(0, 0, canvas.width, canvas.height);
         drawFrame(context, canvas);
         plane.perceptions.forEach(function (perception) {
           drawPerception(context, canvas, perception);
         });
+        cursors.filter(function (cursor) {
+          return cursor.source === plane.uid;
+        }).forEach(function (cursor) {
+          drawCursor(context, canvas, cursor);
+        });
       }
 
       function draw(state) {
-        drawPlane(canvasA, state.planes[0]);
-        drawPlane(canvasC, state.planes[1]);
+        drawPlane(canvasA, state.planes[0], state.cursors);
+        drawPlane(canvasC, state.planes[1], state.cursors);
       }
 
       async function refresh() {
