@@ -11,6 +11,10 @@ def token_position(token):
   x, y = struct.unpack(">II", hashlib.sha256(token.encode("utf-8")).digest()[:8])
   return x / 4294967296.0, y / 4294967296.0
 
+def token_angle(token):
+  (value,) = struct.unpack(">I", hashlib.sha256(token.encode("utf-8")).digest()[8:12])
+  return value / 4294967296.0
+
 def tokenize(text):
   if not isinstance(text, str):
     raise ValueError("text: must be a string")

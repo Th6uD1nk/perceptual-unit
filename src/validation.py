@@ -104,6 +104,16 @@ def validate_memory(config):
   floor = section["floor"]
   if isinstance(floor, bool) or not isinstance(floor, (int, float)) or not 0 < floor <= 1:
     fail("config.memory.floor", "must be a number greater than 0 and at most 1")
+  if "threshold" not in section:
+    fail("config.memory.threshold", "missing")
+  threshold = section["threshold"]
+  if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not floor <= threshold <= 1:
+    fail("config.memory.threshold", "must be a number at least equal to the floor and at most 1")
+  if "orbit" not in section:
+    fail("config.memory.orbit", "missing")
+  orbit = section["orbit"]
+  if not isinstance(orbit, list) or len(orbit) != 2 or any(isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0 for value in orbit):
+    fail("config.memory.orbit", "must be a list of two numbers of at least 0")
 
 def validate_cursor(config, path="config"):
   if not isinstance(config, dict):

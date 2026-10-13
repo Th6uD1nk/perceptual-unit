@@ -1,7 +1,7 @@
 import unittest
 
 import support
-from transcription import token_hash, token_position, tokenize
+from transcription import token_angle, token_hash, token_position, tokenize
 
 class HashTest(unittest.TestCase):
   def test_the_hash_of_a_token_is_its_sha256_in_hexadecimal(self):
@@ -25,6 +25,15 @@ class PositionTest(unittest.TestCase):
       x, y = token_position(f"token{index}")
       self.assertTrue(0.0 <= x < 1.0)
       self.assertTrue(0.0 <= y < 1.0)
+
+class AngleTest(unittest.TestCase):
+  def test_a_token_always_gets_the_same_angle_and_two_tokens_get_two_angles(self):
+    self.assertEqual(token_angle("house"), token_angle("house"))
+    self.assertNotEqual(token_angle("house"), token_angle("cat"))
+
+  def test_an_angle_is_always_in_zero_inclusive_and_one_exclusive(self):
+    for index in range(500):
+      self.assertTrue(0.0 <= token_angle(f"token{index}") < 1.0)
 
 class TokenizeTest(unittest.TestCase):
   def test_the_text_is_split_on_spaces_and_punctuation_and_lowercased(self):
