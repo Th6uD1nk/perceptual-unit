@@ -423,6 +423,10 @@ class StateTest(unittest.TestCase):
     unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
     self.assertIsNone(unit.state()["planes"][0]["perceptions"][0]["word"])
 
+  def test_the_state_gives_the_relax_of_each_plane(self):
+    unit = Unit(make_config([entry("A", relax="usage"), entry("C", relax="shape"), entry("D")]))
+    self.assertEqual([plane["relax"] for plane in unit.state()["planes"]], ["usage", "shape", None])
+
   def test_the_state_lists_the_cursors_in_the_order_of_their_creation(self):
     unit = Unit(CursorsTest.CONFIG)
     unit.update(8.0)

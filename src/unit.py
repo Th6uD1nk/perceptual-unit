@@ -17,6 +17,7 @@ class Unit:
     self.scheduler = Scheduler(self.config)
     self.moments = Moments(self.scheduler, self.config["memory"]["window"])
     self.planes = {entry["uid"]: Plane(entry, self.moments) for entry in self.config["planes"]}
+    self.relax = {entry["uid"]: entry["relax"] for entry in self.config["planes"]}
     self.generator = Generator(self.config["random"]["seed"])
     self.cursors = [
       Cursor(transfer, self.planes[entry["uid"]], self.planes[transfer["target"]], self.generator)
@@ -76,6 +77,7 @@ class Unit:
 
   def plane_state(self, plane):
     state = plane.state()
+    state["relax"] = self.relax[plane.uid]
     for entry in state["perceptions"]:
       entry["word"] = self.memory.lexicon.word(entry["hash"])
     return state
