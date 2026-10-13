@@ -12,8 +12,8 @@
     <div>moment <span id="moment"></span></div>
     <table>
       <tr>
-        <td>A</td>
-        <td>C</td>
+        <td id="title-a"></td>
+        <td id="title-c"></td>
       </tr>
       <tr>
         <td><canvas id="plane-a" width="400" height="400"></canvas></td>
@@ -26,6 +26,18 @@
       const momentLabel = document.getElementById("moment");
       const canvasA = document.getElementById("plane-a");
       const canvasC = document.getElementById("plane-c");
+      const titleA = document.getElementById("title-a");
+      const titleC = document.getElementById("title-c");
+
+      function planeOf(state, uid) {
+        return state.planes.find(function (plane) {
+          return plane.uid === uid;
+        });
+      }
+
+      function titleOf(plane) {
+        return plane.relax ? plane.uid + " " + plane.relax : plane.uid;
+      }
 
       function drawFrame(context, canvas) {
         context.strokeStyle = "black";
@@ -76,8 +88,12 @@
 
       function draw(state) {
         momentLabel.textContent = state.moment;
-        drawPlane(canvasA, state.planes[0], state.cursors);
-        drawPlane(canvasC, state.planes[1], state.cursors);
+        const planeA = planeOf(state, "A");
+        const planeC = planeOf(state, "C");
+        titleA.textContent = titleOf(planeA);
+        titleC.textContent = titleOf(planeC);
+        drawPlane(canvasA, planeA, state.cursors);
+        drawPlane(canvasC, planeC, state.cursors);
       }
 
       async function refresh() {
