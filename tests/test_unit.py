@@ -8,8 +8,11 @@ from plane import Plane
 from transcription import token_hash, token_position
 from unit import Unit
 
-def entry(uid, peak=1.0):
-  return {"uid": uid, "peak": peak}
+def entry(uid, peak=1.0, transfers=None):
+  return {"uid": uid, "peak": peak, "transfers": transfers if transfers is not None else []}
+
+def transfer(target, **changes):
+  return dict({"target": target, "energy": 0.0625, "step": 0.25, "cooldown": 0, "attraction": 0.0, "distance_power": 2.0, "impact": 0.0, "cycle": 10}, **changes)
 
 def make_config(planes, tick=4.0, seed=1):
   return {"scheduler": {"tick": tick, "budget": 0}, "random": {"seed": seed}, "planes": planes}
@@ -174,6 +177,38 @@ class RejectionTest(unittest.TestCase):
   def test_the_seed_must_be_an_integer_of_at_least_zero(self):
     for seed in (-1, 1.5, "1", None, True):
       self.assertIn("config.random.seed", self.rejected(make_config([entry("A")], seed=seed)), repr(seed))
+
+  def test_the_transfers_of_a_plane_are_required(self):
+    plane = entry("A")
+    del plane["transfers"]
+    self.assertIn("config.planes[0].transfers", self.rejected(make_config([plane])))
+
+  def test_the_transfers_of_a_plane_must_be_a_list(self):
+    self.assertIn("config.planes[0].transfers", self.rejected(make_config([entry("A", transfers={})])))
+
+  def test_a_transfer_must_be_an_object(self):
+    self.assertIn("config.planes[0].transfers[0]", self.rejected(make_config([entry("A", transfers=["C"]), entry("C")])))
+
+  def test_a_transfer_needs_a_target(self):
+    plane = transfer("C")
+    del plane["target"]
+    self.assertIn("config.planes[0].transfers[0].target", self.rejected(make_config([entry("A", transfers=[plane]), entry("C")])))
+
+  def test_the_target_of_a_transfer_must_be_the_uid_of_an_existing_plane(self):
+    for target in ("Z", 3, None):
+      config = make_config([entry("A", transfers=[transfer(target)]), entry("C")])
+      self.assertIn("config.planes[0].transfers[0].target", self.rejected(config), repr(target))
+
+  def test_a_plane_cannot_transfer_to_itself(self):
+    config = make_config([entry("A", transfers=[transfer("A")])])
+    self.assertIn("another plane", self.rejected(config))
+
+  def test_the_settings_of_a_transfer_are_validated_with_their_full_path(self):
+    config = make_config([entry("A", transfers=[transfer("C"), transfer("C", step=0)]), entry("C")])
+    self.assertIn("config.planes[0].transfers[1].step", self.rejected(config))
+
+  def test_a_target_declared_after_its_source_several_transfers_to_one_target_and_a_return_transfer_are_accepted(self):
+    Unit(make_config([entry("A", transfers=[transfer("C"), transfer("C", step=0.5)]), entry("C", transfers=[transfer("A")])]))
 
   def test_a_plane_must_be_an_object(self):
     self.assertIn("config.planes[1]", self.rejected({"planes": [entry("A"), "C"]}))

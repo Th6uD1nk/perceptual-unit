@@ -20,6 +20,25 @@ def validate_plane(entry, path, known):
   if isinstance(peak, bool) or not isinstance(peak, (int, float)) or peak <= 0:
     fail(f"{path}.peak", "must be a number greater than 0")
 
+def validate_transfers(entry, path, known):
+  if "transfers" not in entry:
+    fail(f"{path}.transfers", "missing")
+  transfers = entry["transfers"]
+  if not isinstance(transfers, list):
+    fail(f"{path}.transfers", "must be a list")
+  for index, transfer in enumerate(transfers):
+    where = f"{path}.transfers[{index}]"
+    if not isinstance(transfer, dict):
+      fail(where, "must be an object")
+    if "target" not in transfer:
+      fail(f"{where}.target", "missing")
+    target = transfer["target"]
+    if not isinstance(target, str) or target not in known:
+      fail(f"{where}.target", "must be the uid of an existing plane")
+    if target == entry["uid"]:
+      fail(f"{where}.target", "must be another plane")
+    validate_cursor(transfer, where)
+
 def validate_config(config):
   if not isinstance(config, dict):
     fail("config", "must be an object")
@@ -31,6 +50,8 @@ def validate_config(config):
   known = set()
   for index, entry in enumerate(planes):
     validate_plane(entry, f"config.planes[{index}]", known)
+  for index, entry in enumerate(planes):
+    validate_transfers(entry, f"config.planes[{index}]", known)
   validate_scheduler(config)
   validate_random(config)
 
