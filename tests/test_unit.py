@@ -412,6 +412,17 @@ class StateTest(unittest.TestCase):
     self.assertEqual(planes["C"]["perceptions"], [])
     self.assertEqual([entry["hash"] for entry in planes["D"]["perceptions"]], ["cat"])
 
+  def test_a_perception_in_the_state_gives_the_word_of_its_hash(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["house", "cat"], 0.5)
+    words = {entry["hash"]: entry["word"] for entry in unit.state()["planes"][0]["perceptions"]}
+    self.assertEqual(words, {token_hash("house"): "house", token_hash("cat"): "cat"})
+
+  def test_a_perception_whose_hash_is_not_in_the_lexicon_gives_no_word(self):
+    unit = Unit(CONFIG)
+    unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
+    self.assertIsNone(unit.state()["planes"][0]["perceptions"][0]["word"])
+
   def test_the_state_lists_the_cursors_in_the_order_of_their_creation(self):
     unit = Unit(CursorsTest.CONFIG)
     unit.update(8.0)

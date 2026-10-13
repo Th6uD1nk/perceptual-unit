@@ -74,10 +74,16 @@ class Unit:
       entries.sort(key=lambda entry: (-entry["energy"], -entry["count"], entry["hash"]))
     return entries
 
+  def plane_state(self, plane):
+    state = plane.state()
+    for entry in state["perceptions"]:
+      entry["word"] = self.memory.lexicon.word(entry["hash"])
+    return state
+
   def state(self):
     return {
       "ticks": self.ticks,
       "moment": self.moments.current(),
-      "planes": [plane.state() for plane in self.planes.values()],
+      "planes": [self.plane_state(plane) for plane in self.planes.values()],
       "cursors": [cursor.state() for cursor in self.cursors]
     }
