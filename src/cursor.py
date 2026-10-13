@@ -148,6 +148,17 @@ class Cursor:
       self.restart()
     return transferred
 
+  def state(self):
+    return {
+      "source": self.source.uid,
+      "target": self.target.uid,
+      "x": self.x,
+      "y": self.y,
+      "dx": self.dx,
+      "dy": self.dy,
+      "segment": list(self.segment) if self.segment is not None else None
+    }
+
   def start(self, scheduler):
     self.scheduler = scheduler
     self.cycle_start = scheduler.ticks

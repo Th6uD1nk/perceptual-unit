@@ -1,3 +1,4 @@
+import json
 import math
 import unittest
 
@@ -602,6 +603,31 @@ class BudgetRunTest(unittest.TestCase):
     self.ticks(5)
     cursor.finish(1)
     self.assertEqual(cursor.moved_tick, 5)
+
+class StateTest(unittest.TestCase):
+  def test_the_state_gives_the_planes_the_position_and_the_direction_without_segment_before_the_first_move(self):
+    cursor = make_cursor(0.25, 0.5, 3.0, 4.0)
+    self.assertEqual(cursor.state(), {"source": "A", "target": "C", "x": 0.25, "y": 0.5, "dx": 0.6, "dy": 0.8, "segment": None})
+
+  def test_the_state_gives_the_segment_of_the_last_move_as_a_list(self):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
+    cursor.advance(0.5)
+    self.assertEqual(cursor.state()["segment"], [0.25, 0.5, 0.75, 0.5])
+
+  def test_the_state_can_be_written_as_json(self):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
+    self.assertEqual(json.loads(json.dumps(cursor.state())), cursor.state())
+    cursor.advance(0.5)
+    self.assertEqual(json.loads(json.dumps(cursor.state())), cursor.state())
+
+  def test_changing_the_state_does_not_change_the_cursor(self):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0)
+    cursor.advance(0.5)
+    state = cursor.state()
+    state["segment"][0] = 9.0
+    state["x"] = 9.0
+    self.assertEqual(cursor.segment, (0.25, 0.5, 0.75, 0.5))
+    self.assertEqual(cursor.x, 0.75)
 
 class Script:
   def __init__(self, *values):
