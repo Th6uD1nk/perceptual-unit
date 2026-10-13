@@ -349,6 +349,21 @@ class PullTest(unittest.TestCase):
     self.perception("dog", 0.9, 0.9)
     self.assertEqual(self.memory.pull(cat, self.plane)[2], 3)
 
+  def test_the_affinity_comes_from_the_terms_given_to_the_spring_pull(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    self.perception("dog", 0.4, 0.5)
+    repelled = self.memory.spring_pull(cat, self.plane, lambda other: (0.0, 0.2, 1.0))[0]
+    attracted = self.memory.spring_pull(cat, self.plane, lambda other: (1.0, 0.2, 1.0))[0]
+    self.assertLess(repelled, 0.3)
+    self.assertGreater(attracted, 0.3)
+
+  def test_the_boost_of_the_terms_multiplies_the_force_and_not_the_weight(self):
+    cat = self.perception("cat", 0.3, 0.5, energy=4.0)
+    self.perception("dog", 0.7, 0.5)
+    plain = self.memory.spring_pull(cat, self.plane, lambda other: (0.0, 0.2, 1.0))[0] - 0.3
+    boosted = self.memory.spring_pull(cat, self.plane, lambda other: (0.0, 0.2, 2.0))[0] - 0.3
+    self.assertAlmostEqual(boosted / plain, 2.0)
+
   def test_the_plane_is_not_modified_by_a_pull(self):
     cat = self.perception("cat", 0.3, 0.5)
     self.perception("cats", 0.7, 0.5)

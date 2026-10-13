@@ -85,20 +85,27 @@ class Memory:
     positions.update(moved)
 
   def pull(self, perception, plane):
+    similar = self.lexicon.similar(perception.hash)
+
+    def terms(other):
+      score = similar.get(other.hash, 0.0)
+      affinity = score if score >= self.threshold else 0.0
+      return affinity, max(affinity, self.base), 1.0
+
+    return self.spring_pull(perception, plane, terms)
+
+  def spring_pull(self, perception, plane, terms):
     neighbors = [other for other in plane.of_moment(perception.moment) if other is not perception]
     cost = max(1, len(neighbors))
-    similar = self.lexicon.similar(perception.hash)
     fx = fy = weight = 0.0
     for other in neighbors:
       dx, dy = other.x - perception.x, other.y - perception.y
       distance = math.hypot(dx, dy)
       if distance == 0.0 or distance >= self.reach:
         continue
-      score = similar.get(other.hash, 0.0)
-      affinity = score if score >= self.threshold else 0.0
-      level = max(affinity, self.base)
+      affinity, level, boost = terms(other)
       rest = self.far - (self.far - self.rest) * affinity
-      force = level * spring_force(distance, rest, self.reach) / distance
+      force = level * boost * spring_force(distance, rest, self.reach) / distance
       fx += force * dx
       fy += force * dy
       weight += level * (1.0 - distance / self.reach)
