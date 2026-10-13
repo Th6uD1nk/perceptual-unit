@@ -13,6 +13,9 @@ class Memory:
     self.lexicon = Lexicon(section["floor"])
     self.threshold = section["threshold"]
     self.orbit = section["orbit"]
+    self.window = section["window"]
+    self.counts = {}
+    self.strengths = {}
     self.positions = {"shape": {}, "usage": {}}
 
   def add(self, word):
@@ -34,6 +37,31 @@ class Memory:
     angle = token_angle(word) * math.tau
     x, y = self.positions["shape"][neighbor]
     return (max(0.0, min(1.0, x + radius * math.cos(angle))), max(0.0, min(1.0, y + radius * math.sin(angle))))
+
+  def observe(self, words):
+    if not isinstance(words, list) or not words or any(not isinstance(word, str) or not word for word in words):
+      raise ValueError("words: must be a non-empty list of non-empty strings")
+    hashes = [self.add(word) for word in words]
+    for hash_ in dict.fromkeys(hashes):
+      self.counts[hash_] = self.count(hash_) + 1
+    self.link(hashes)
+    return hashes
+
+  def link(self, hashes):
+    made = set()
+    for first in range(len(hashes)):
+      stop = len(hashes) if self.window == 0 else min(len(hashes), first + 1 + self.window)
+      for second in range(first + 1, stop):
+        if hashes[first] != hashes[second]:
+          made.add(tuple(sorted((hashes[first], hashes[second]))))
+    for pair in made:
+      self.strengths[pair] = self.strengths.get(pair, 0.0) + 1.0
+
+  def count(self, hash_):
+    return self.counts.get(hash_, 0)
+
+  def strength(self, first, second):
+    return self.strengths.get(tuple(sorted((first, second))), 0.0)
 
   def position(self, hash_, kind):
     if kind not in MAPS:

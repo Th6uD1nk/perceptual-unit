@@ -114,6 +114,11 @@ def validate_memory(config):
   orbit = section["orbit"]
   if not isinstance(orbit, list) or len(orbit) != 2 or any(isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0 for value in orbit):
     fail("config.memory.orbit", "must be a list of two numbers of at least 0")
+  if "window" not in section:
+    fail("config.memory.window", "missing")
+  window = section["window"]
+  if isinstance(window, bool) or not isinstance(window, int) or window < 0:
+    fail("config.memory.window", "must be an integer of at least 0")
 
 def validate_cursor(config, path="config"):
   if not isinstance(config, dict):

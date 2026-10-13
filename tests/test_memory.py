@@ -5,7 +5,7 @@ import support
 from memory import Memory
 from transcription import token_angle, token_hash, token_position
 
-CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1]}}
+CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2}}
 
 class AddTest(unittest.TestCase):
   def setUp(self):
@@ -60,7 +60,7 @@ class OrbitTest(unittest.TestCase):
     self.assertEqual(self.memory.position(self.similar_hash, "usage"), token_position(self.similar))
 
   def test_a_word_below_the_threshold_is_born_at_its_anchor_on_the_shape_map(self):
-    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.9, "orbit": [0.05, 0.1]}})
+    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.9, "orbit": [0.05, 0.1], "window": 2}})
     memory.add(self.base)
     hash_ = memory.add(self.similar)
     self.assertEqual(memory.position(hash_, "shape"), token_position(self.similar))
@@ -77,11 +77,66 @@ class OrbitTest(unittest.TestCase):
     self.assertAlmostEqual(math.hypot(bx - ax, by - ay), 0.05 + (1.0 - scores[near]) * 0.1)
 
   def test_the_shape_position_stays_in_the_plane_when_the_orbit_overflows(self):
-    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.9, 0.9]}})
+    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.9, 0.9], "window": 2}})
     memory.add(self.base)
     for word in (self.base + "s", self.base + "es", self.base + "ed", self.base + "ing"):
       x, y = memory.position(memory.add(word), "shape")
       self.assertTrue(0.0 <= x <= 1.0 and 0.0 <= y <= 1.0)
+
+class ObserveTest(unittest.TestCase):
+  def memory(self, window=2):
+    return Memory({"memory": dict(CONFIG["memory"], window=window)})
+
+  def test_a_word_repeated_in_a_flow_counts_once_and_counts_again_in_the_next_flow(self):
+    memory = self.memory()
+    memory.observe(["a", "b", "a"])
+    self.assertEqual((memory.count(token_hash("a")), memory.count(token_hash("b"))), (1, 1))
+    memory.observe(["a"])
+    self.assertEqual(memory.count(token_hash("a")), 2)
+
+  def test_an_unknown_word_counts_zero(self):
+    self.assertEqual(self.memory().count("unknown"), 0)
+
+  def test_the_flow_gives_back_the_hashes_in_order_and_the_words_enter_the_lexicon(self):
+    memory = self.memory()
+    hashes = memory.observe(["a", "b", "a"])
+    self.assertEqual(hashes, [token_hash("a"), token_hash("b"), token_hash("a")])
+    self.assertEqual(memory.lexicon.word(token_hash("b")), "b")
+
+  def test_the_words_within_the_window_are_linked_and_the_others_are_not(self):
+    memory = self.memory(window=2)
+    memory.observe(["a", "b", "c", "d"])
+    strengths = {pair: memory.strength(token_hash(pair[0]), token_hash(pair[1])) for pair in ("ab", "ac", "bc", "bd", "cd", "ad")}
+    self.assertEqual(strengths, {"ab": 1.0, "ac": 1.0, "bc": 1.0, "bd": 1.0, "cd": 1.0, "ad": 0.0})
+
+  def test_a_window_of_zero_links_all_the_words_of_the_flow(self):
+    memory = self.memory(window=0)
+    memory.observe(["a", "b", "c", "d"])
+    self.assertEqual(memory.strength(token_hash("a"), token_hash("d")), 1.0)
+
+  def test_a_pair_that_appears_several_times_in_a_flow_is_linked_once(self):
+    memory = self.memory()
+    memory.observe(["a", "b", "a", "b"])
+    self.assertEqual(memory.strength(token_hash("a"), token_hash("b")), 1.0)
+
+  def test_a_word_is_never_linked_to_itself(self):
+    memory = self.memory()
+    memory.observe(["a", "a"])
+    self.assertEqual(memory.strengths, {})
+
+  def test_the_link_is_the_same_in_both_directions_and_adds_up_from_flow_to_flow(self):
+    memory = self.memory()
+    memory.observe(["a", "b"])
+    memory.observe(["b", "a"])
+    self.assertEqual(memory.strength(token_hash("a"), token_hash("b")), 2.0)
+    self.assertEqual(memory.strength(token_hash("b"), token_hash("a")), 2.0)
+
+  def test_an_invalid_flow_is_refused_and_changes_nothing(self):
+    memory = self.memory()
+    for words in ([], "text", ["a", ""], ["a", 3]):
+      with self.assertRaises(ValueError, msg=repr(words)):
+        memory.observe(words)
+    self.assertEqual((memory.counts, memory.strengths, memory.lexicon.words), ({}, {}, {}))
 
 class PositionTest(unittest.TestCase):
   def test_an_unknown_hash_has_no_position(self):
@@ -122,6 +177,18 @@ class ConfigTest(unittest.TestCase):
   def test_the_threshold_must_be_a_number_between_the_floor_and_one(self):
     for threshold in (0.29, 1.1, "0.5", None, True):
       self.assertIn("config.memory.threshold", self.rejected(self.with_changes(threshold=threshold)), repr(threshold))
+
+  def test_the_window_is_required(self):
+    config = self.with_changes()
+    del config["memory"]["window"]
+    self.assertIn("config.memory.window", self.rejected(config))
+
+  def test_the_window_must_be_an_integer_of_at_least_zero(self):
+    for window in (-1, 1.5, "2", None, True):
+      self.assertIn("config.memory.window", self.rejected(self.with_changes(window=window)), repr(window))
+
+  def test_a_window_of_zero_is_accepted(self):
+    Memory(self.with_changes(window=0))
 
   def test_the_orbit_is_required(self):
     config = self.with_changes()
