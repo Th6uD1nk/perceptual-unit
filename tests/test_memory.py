@@ -8,7 +8,7 @@ from moments import Moments
 from plane import Plane
 from transcription import token_angle, token_hash, token_position
 
-BASE = {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0}
+BASE = {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0, "coexpression": 1.0, "kappa": 1.0, "amplify": 2.0}
 
 def config(**changes):
   return {"memory": dict(BASE, **changes)}
@@ -372,6 +372,89 @@ class PullTest(unittest.TestCase):
     after = {key: (perception.x, perception.y, perception.energy) for key, perception in self.plane.perceptions.items()}
     self.assertEqual(before, after)
 
+class PullUsageTest(unittest.TestCase):
+  def setUp(self):
+    self.memory = Memory(config(rate=0.05))
+    self.clock = SimpleNamespace(moment=0)
+    self.moments = Moments(self.clock, 2)
+    self.plane = Plane({"uid": "A", "peak": 4.0}, self.moments)
+
+  def perception(self, word, x, y, energy=1.0, moment=0):
+    self.clock.moment = moment
+    self.plane.receive(token_hash(word), x, y, energy)
+    return self.plane.perceptions[(token_hash(word), x, y, moment)]
+
+  def link(self, first, second, times=1, moment=0):
+    self.clock.moment = moment
+    for _ in range(times):
+      self.moments.record([token_hash(first), token_hash(second)])
+
+  def shift(self, memory=None, moment=0):
+    cat = self.plane.perceptions[(token_hash("cat"), 0.3, 0.5, moment)]
+    return (memory or self.memory).pull_usage(cat, self.plane, self.moments)[0] - 0.3
+
+  def test_a_linked_neighbor_attracts_and_a_neighbor_without_link_repels(self):
+    self.perception("cat", 0.3, 0.5)
+    self.perception("dog", 0.5, 0.5)
+    self.assertLess(self.shift(Memory(config(rate=0.05, coexpression=0))), 0.0)
+    self.link("cat", "dog")
+    self.assertGreater(self.shift(Memory(config(rate=0.05, coexpression=0))), 0.0)
+
+  def test_the_link_saturates_with_its_strength(self):
+    self.perception("cat", 0.3, 0.5)
+    self.perception("dog", 0.4, 0.5)
+    self.link("cat", "dog")
+    weak = self.shift()
+    self.link("cat", "dog", times=2)
+    strong = self.shift()
+    self.link("cat", "dog", times=50)
+    saturated = self.shift()
+    self.link("cat", "dog", times=500)
+    self.assertGreater(strong, weak)
+    self.assertGreater(saturated, strong)
+    self.assertAlmostEqual(self.shift(), saturated, places=3)
+
+  def test_the_amplification_strengthens_the_force_of_a_linked_neighbor(self):
+    self.perception("cat", 0.3, 0.5, energy=4.0)
+    self.perception("dog", 0.6, 0.5)
+    self.link("cat", "dog")
+    plain = self.shift(Memory(config(rate=0.05, amplify=0)))
+    amplified = self.shift(Memory(config(rate=0.05, amplify=2.0)))
+    self.assertGreater(amplified, plain)
+
+  def test_a_neighbor_of_another_moment_has_no_effect(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    self.perception("dog", 0.4, 0.5, moment=1)
+    self.assertEqual(self.memory.pull_usage(cat, self.plane, self.moments), (0.3, 0.5, 1))
+
+  def test_the_expression_of_a_neighbor_attracts_through_the_coexpression_without_link(self):
+    self.perception("cat", 0.3, 0.5)
+    self.perception("dog", 0.4, 0.5, energy=4.0)
+    self.assertGreater(self.shift(Memory(config(rate=0.05, coexpression=1.0))), 0.0)
+    self.assertLess(self.shift(Memory(config(rate=0.05, coexpression=0.0))), 0.0)
+
+  def test_a_neighbor_without_link_and_with_almost_no_energy_still_acts_at_the_base_level(self):
+    self.perception("cat", 0.3, 0.5)
+    self.perception("dog", 0.4, 0.5, energy=0.01)
+    self.assertLess(self.shift(), 0.0)
+
+  def test_the_cost_is_the_number_of_neighbors_of_the_moment(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    self.assertEqual(self.memory.pull_usage(cat, self.plane, self.moments)[2], 1)
+    self.perception("dog", 0.5, 0.5)
+    self.perception("bird", 0.6, 0.5)
+    self.perception("fish", 0.9, 0.9, moment=1)
+    self.assertEqual(self.memory.pull_usage(cat, self.plane, self.moments)[2], 2)
+
+  def test_nothing_is_modified_by_a_pull(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    self.perception("dog", 0.4, 0.5)
+    self.link("cat", "dog")
+    before = ({key: (p.x, p.y, p.energy) for key, p in self.plane.perceptions.items()}, self.moments.links_of(0), self.moments.link_totals.copy())
+    self.memory.pull_usage(cat, self.plane, self.moments)
+    after = ({key: (p.x, p.y, p.energy) for key, p in self.plane.perceptions.items()}, self.moments.links_of(0), self.moments.link_totals.copy())
+    self.assertEqual(before, after)
+
 class PositionTest(unittest.TestCase):
   def test_an_unknown_hash_has_no_position(self):
     self.assertIsNone(Memory(CONFIG).position("unknown", "usage"))
@@ -441,7 +524,7 @@ class ConfigTest(unittest.TestCase):
     Memory(self.with_changes(decay=1))
 
   def test_the_spring_settings_are_required_and_must_be_numbers(self):
-    for key in ("range", "rest", "far", "base", "rate"):
+    for key in ("range", "rest", "far", "base", "rate", "coexpression", "kappa", "amplify"):
       config_without = self.with_changes()
       del config_without["memory"][key]
       self.assertIn(f"config.memory.{key}", self.rejected(config_without), key)
@@ -452,6 +535,13 @@ class ConfigTest(unittest.TestCase):
     for key in ("range", "rate"):
       for value in (0, -1):
         self.assertIn(f"config.memory.{key}", self.rejected(self.with_changes(**{key: value})), repr((key, value)))
+
+  def test_the_kappa_must_be_greater_than_zero_and_the_coexpression_and_the_amplification_at_least_zero(self):
+    for value in (0, -1):
+      self.assertIn("config.memory.kappa", self.rejected(self.with_changes(kappa=value)), repr(value))
+    for key in ("coexpression", "amplify"):
+      self.assertIn(f"config.memory.{key}", self.rejected(self.with_changes(**{key: -0.1})), key)
+      Memory(self.with_changes(**{key: 0}))
 
   def test_the_rest_and_the_base_must_be_at_least_zero_and_the_far_distance_at_least_the_rest(self):
     for key in ("rest", "base"):

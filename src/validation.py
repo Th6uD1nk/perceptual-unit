@@ -134,7 +134,7 @@ def validate_memory(config):
   decay = section["decay"]
   if isinstance(decay, bool) or not isinstance(decay, (int, float)) or not 0 <= decay <= 1:
     fail("config.memory.decay", "must be a number between 0 and 1")
-  for key in ("range", "rest", "far", "base", "rate"):
+  for key in ("range", "rest", "far", "base", "rate", "coexpression", "kappa", "amplify"):
     if key not in section:
       fail(f"config.memory.{key}", "missing")
     value = section[key]
@@ -150,6 +150,12 @@ def validate_memory(config):
     fail("config.memory.base", "must be at least 0")
   if section["rate"] <= 0:
     fail("config.memory.rate", "must be greater than 0")
+  if section["coexpression"] < 0:
+    fail("config.memory.coexpression", "must be at least 0")
+  if section["kappa"] <= 0:
+    fail("config.memory.kappa", "must be greater than 0")
+  if section["amplify"] < 0:
+    fail("config.memory.amplify", "must be at least 0")
 
 def validate_cursor(config, path="config"):
   if not isinstance(config, dict):

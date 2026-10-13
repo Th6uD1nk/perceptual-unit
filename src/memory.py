@@ -22,6 +22,9 @@ class Memory:
     self.far = section["far"]
     self.base = section["base"]
     self.rate = section["rate"]
+    self.coexpression = section["coexpression"]
+    self.kappa = section["kappa"]
+    self.amplify = section["amplify"]
     self.recent = collections.deque(maxlen=section["recent"])
     self.counts = {}
     self.strengths = {}
@@ -91,6 +94,17 @@ class Memory:
       score = similar.get(other.hash, 0.0)
       affinity = score if score >= self.threshold else 0.0
       return affinity, max(affinity, self.base), 1.0
+
+    return self.spring_pull(perception, plane, terms)
+
+  def pull_usage(self, perception, plane, moments):
+    links = moments.links_of(perception.moment)
+
+    def terms(other):
+      link = 1.0 - math.exp(-links.get(tuple(sorted((perception.hash, other.hash))), 0) / self.kappa)
+      expression = other.energy / plane.peak
+      affinity = min(1.0, max(self.coexpression * expression, link))
+      return affinity, max(expression, self.base), 1.0 + self.amplify * link
 
     return self.spring_pull(perception, plane, terms)
 

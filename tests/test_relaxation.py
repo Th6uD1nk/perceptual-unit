@@ -8,7 +8,7 @@ from relaxation import Relaxation
 from scheduler import Scheduler
 from transcription import token_hash
 
-CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0}}
+CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0, "coexpression": 1.0, "kappa": 1.0, "amplify": 2.0}}
 
 class RelaxationTest(unittest.TestCase):
   def setUp(self):
