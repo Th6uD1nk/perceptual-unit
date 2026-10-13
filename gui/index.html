@@ -39,6 +39,10 @@
         context.arc(perception.x * canvas.width, perception.y * canvas.height, radius, 0, 2 * Math.PI);
         context.fillStyle = "hsla(" + (perception.moment * 67) % 360 + ", 70%, 60%, " + (perception.read ? 0.12 : 0.35) + ")";
         context.fill();
+        if (perception.word) {
+          context.fillStyle = "black";
+          context.fillText(perception.word, perception.x * canvas.width + radius + 2, perception.y * canvas.height);
+        }
       }
 
       function drawCursor(context, canvas, cursor) {
