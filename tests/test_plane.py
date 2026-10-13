@@ -158,6 +158,74 @@ class CountTest(unittest.TestCase):
     self.plane.transfer(self.plane.perceptions[KEY], target, 1.0)
     self.assertEqual((self.moments.count(0), self.moments.count(1)), (0, 1))
 
+class MoveTest(unittest.TestCase):
+  def setUp(self):
+    self.clock = SimpleNamespace(moment=0)
+    self.moments = Moments(self.clock)
+    self.plane = make_plane(peak=4.0, moments=self.moments)
+    self.plane.receive(*POINT, 1.0)
+    self.perception = self.plane.perceptions[KEY]
+
+  def test_a_moved_perception_takes_its_new_position_and_its_new_key(self):
+    self.assertIs(self.plane.move(self.perception, 0.5, 0.5), self.perception)
+    self.assertEqual(self.perception.key, ("house", 0.5, 0.5, 0))
+    self.assertIs(self.plane.perceptions[("house", 0.5, 0.5, 0)], self.perception)
+    self.assertNotIn(KEY, self.plane.perceptions)
+    self.assertEqual((self.perception.energy, self.perception.moment), (1.0, 0))
+
+  def test_the_new_position_is_brought_back_into_the_plane(self):
+    self.plane.move(self.perception, 1.5, -0.2)
+    self.assertEqual((self.perception.x, self.perception.y), (1.0, 0.0))
+
+  def test_a_perception_that_is_not_on_the_plane_is_not_moved(self):
+    stranger = Perception(*KEY)
+    stranger.energy = 1.0
+    self.assertIsNone(self.plane.move(stranger, 0.5, 0.5))
+    self.assertEqual((stranger.x, stranger.y), (0.25, 0.75))
+    self.assertIn(KEY, self.plane.perceptions)
+
+  def test_a_simple_move_does_not_change_the_count_of_the_moment(self):
+    self.plane.move(self.perception, 0.5, 0.5)
+    self.assertEqual(self.moments.count(0), 1)
+
+  def test_two_perceptions_of_one_hash_and_one_moment_that_meet_are_merged(self):
+    self.plane.receive("house", 0.5, 0.75, 2.0)
+    other = self.plane.perceptions[("house", 0.5, 0.75, 0)]
+    kept = self.plane.move(other, 0.25, 0.75)
+    self.assertIs(kept, self.perception)
+    self.assertEqual(list(self.plane.perceptions), [KEY])
+    self.assertEqual(self.perception.energy, 3.0)
+    self.assertEqual(self.moments.count(0), 1)
+
+  def test_a_merge_stops_at_the_peak_and_the_surplus_stays_in_the_moved_perception(self):
+    self.plane.receive(*POINT, 2.0)
+    self.plane.receive("house", 0.5, 0.75, 2.0)
+    other = self.plane.perceptions[("house", 0.5, 0.75, 0)]
+    kept = self.plane.move(other, 0.25, 0.75)
+    self.assertIs(kept, self.perception)
+    self.assertEqual((self.perception.energy, other.energy), (4.0, 1.0))
+    self.assertIs(self.plane.perceptions[("house", 0.5, 0.75, 0)], other)
+    self.assertEqual(self.moments.count(0), 2)
+
+  def test_a_perception_of_another_hash_or_of_another_moment_is_not_merged(self):
+    self.plane.receive("cat", 0.5, 0.75, 1.0)
+    self.clock.moment = 1
+    self.plane.receive("house", 0.5, 0.75, 1.0)
+    for key in (("cat", 0.5, 0.75, 0), ("house", 0.5, 0.75, 1)):
+      self.plane.move(self.plane.perceptions[key], 0.25, 0.75)
+    self.assertEqual(len(self.plane.perceptions), 3)
+
+  def test_a_perception_moved_during_a_pass_is_visited_once_and_an_absorbed_one_is_skipped(self):
+    self.plane.receive("house", 0.5, 0.75, 1.0)
+    other = self.plane.perceptions[("house", 0.5, 0.75, 0)]
+    seen = []
+    def hook(perception):
+      seen.append(perception.key)
+      if perception is self.perception:
+        self.plane.move(other, 0.25, 0.75)
+    self.plane.visit(10, hook)
+    self.assertEqual(seen, [KEY])
+
 class RemoveTest(unittest.TestCase):
   def setUp(self):
     self.plane = make_plane()

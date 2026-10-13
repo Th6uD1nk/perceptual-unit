@@ -32,6 +32,28 @@ class Plane:
     perception.energy += accepted
     return accepted
 
+  def move(self, perception, x, y):
+    if self.perceptions.get(perception.key) is not perception:
+      return None
+    x = max(0.0, min(1.0, x))
+    y = max(0.0, min(1.0, y))
+    key = (perception.hash, x, y, perception.moment)
+    if key == perception.key:
+      return perception
+    existing = self.perceptions.get(key)
+    if existing is None:
+      del self.perceptions[perception.key]
+      perception.x = x
+      perception.y = y
+      self.perceptions[perception.key] = perception
+      return perception
+    moved = min(perception.energy, self.peak - existing.energy)
+    existing.energy += moved
+    perception.energy -= moved
+    if perception.energy <= 0:
+      self.remove(perception)
+    return existing
+
   def remove(self, perception):
     if self.perceptions.get(perception.key) is not perception:
       return False
