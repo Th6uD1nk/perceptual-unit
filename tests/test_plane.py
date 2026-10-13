@@ -278,6 +278,21 @@ class MomentIndexTest(unittest.TestCase):
       for moment in range(3):
         expected = {id(perception) for perception in self.plane.perceptions.values() if perception.moment == moment}
         self.assertEqual({id(perception) for perception in self.plane.of_moment(moment)}, expected)
+      for name in ("word0", "word1", "word2"):
+        expected = {id(perception) for perception in self.plane.perceptions.values() if perception.hash == name}
+        self.assertEqual({id(perception) for perception in self.plane.living(name)}, expected)
+      self.assertTrue(all(self.plane.by_hash.values()))
+
+  def test_the_living_perceptions_of_a_hash_cross_the_moments_and_leave_no_empty_entry(self):
+    self.plane.receive("a", 0.1, 0.1, 1.0)
+    self.clock.moment = 1
+    self.plane.receive("a", 0.2, 0.2, 1.0)
+    self.plane.receive("b", 0.3, 0.3, 1.0)
+    self.assertEqual(sorted(perception.x for perception in self.plane.living("a")), [0.1, 0.2])
+    self.assertEqual(self.plane.living("none"), [])
+    for perception in self.plane.living("a"):
+      self.plane.remove(perception)
+    self.assertEqual(list(self.plane.by_hash), ["b"])
 
 class RemoveTest(unittest.TestCase):
   def setUp(self):

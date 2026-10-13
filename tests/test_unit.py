@@ -218,6 +218,22 @@ class RelaxationTest(unittest.TestCase):
     after = {p.key: (p.x, p.y) for p in unit.planes["A"].perceptions.values()}
     self.assertNotEqual(sorted(before.values()), sorted(after.values()))
 
+  def test_a_word_is_deposited_near_a_living_similar_perception_and_otherwise_at_its_anchor(self):
+    words = list(similar_pair_in_range())
+    unit = self.unit(None)
+    unit.feed_flow(words[:1], 1.0)
+    first = next(iter(unit.planes["A"].perceptions.values()))
+    unit.feed_flow(words[1:], 1.0)
+    second = [p for p in unit.planes["A"].perceptions.values() if p is not first][0]
+    self.assertLess(math.hypot(second.x - first.x, second.y - first.y), 0.16)
+    self.assertNotEqual((second.x, second.y), token_position(words[1]))
+
+  def test_a_word_fed_again_is_deposited_on_its_living_perception(self):
+    unit = self.unit(None)
+    unit.feed_flow(["cat"], 1.0)
+    unit.feed_flow(["cat"], 1.0)
+    self.assertEqual(len(unit.planes["A"].perceptions), 1)
+
   def test_nothing_moves_in_a_unit_that_has_received_nothing(self):
     unit = self.unit("shape")
     unit.update(50.0)

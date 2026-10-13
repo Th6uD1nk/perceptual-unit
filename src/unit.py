@@ -7,7 +7,7 @@ from moments import Moments
 from plane import Plane
 from relaxation import Relaxation
 from scheduler import Scheduler
-from transcription import token_hash, token_position
+from transcription import token_hash
 from validation import validate_config
 
 class Unit:
@@ -45,7 +45,7 @@ class Unit:
     hashes = [self.memory.lexicon.add(token) for token in tokens]
     accepted = []
     for token, hash_ in zip(tokens, hashes):
-      x, y = token_position(token)
+      x, y = self.memory.birth(token, hash_, plane)
       accepted.append(plane.receive(hash_, x, y, energy))
     self.moments.record(hashes)
     return accepted

@@ -91,6 +91,79 @@ class OrbitTest(unittest.TestCase):
       x, y = memory.position(memory.add(word), "shape")
       self.assertTrue(0.0 <= x <= 1.0 and 0.0 <= y <= 1.0)
 
+class BirthTest(unittest.TestCase):
+  def setUp(self):
+    self.memory = Memory(CONFIG)
+    self.clock = SimpleNamespace(moment=0)
+    self.plane = Plane({"uid": "A", "peak": 4.0}, Moments(self.clock, 2))
+    self.base = central_word()
+    self.similar = self.base + "s"
+
+  def live(self, word, x, y, energy=1.0, moment=0):
+    self.clock.moment = moment
+    self.plane.receive(self.memory.add(word), x, y, energy)
+
+  def birth(self, word):
+    return self.memory.birth(word, self.memory.add(word), self.plane)
+
+  def test_a_word_without_any_living_perception_is_born_at_its_anchor(self):
+    self.assertEqual(self.birth(self.similar), token_position(self.similar))
+
+  def test_a_similar_word_that_is_only_in_the_lexicon_does_not_attract_the_birth(self):
+    self.memory.add(self.base)
+    self.assertEqual(self.birth(self.similar), token_position(self.similar))
+
+  def test_a_word_is_born_on_the_orbit_of_a_living_similar_perception(self):
+    self.live(self.base, 0.4, 0.4)
+    score = self.memory.lexicon.similar(self.memory.add(self.similar))[self.memory.add(self.base)]
+    x, y = self.birth(self.similar)
+    self.assertAlmostEqual(math.hypot(x - 0.4, y - 0.4), 0.05 + (1.0 - score) * 0.1)
+    self.assertAlmostEqual(math.atan2(y - 0.4, x - 0.4) % math.tau, token_angle(self.similar) * math.tau)
+
+  def test_a_living_similar_perception_of_an_older_moment_counts(self):
+    self.live(self.base, 0.4, 0.4, moment=0)
+    self.clock.moment = 1
+    x, y = self.birth(self.similar)
+    self.assertLess(math.hypot(x - 0.4, y - 0.4), 0.16)
+
+  def test_a_word_below_the_threshold_is_born_at_its_anchor(self):
+    memory = Memory(config(threshold=0.99))
+    self.memory = memory
+    self.live(self.base, 0.4, 0.4)
+    self.assertEqual(self.birth(self.similar), token_position(self.similar))
+
+  def test_the_most_similar_living_word_is_the_one_it_is_born_around(self):
+    far = self.base + "x" + self.base
+    self.live(far, 0.8, 0.8)
+    self.live(self.base, 0.4, 0.4)
+    x, y = self.birth(self.similar)
+    self.assertLess(math.hypot(x - 0.4, y - 0.4), 0.16)
+
+  def test_the_strongest_living_perception_of_the_neighbor_is_chosen(self):
+    self.live(self.base, 0.4, 0.4, energy=1.0)
+    self.live(self.base, 0.2, 0.2, energy=2.0)
+    x, y = self.birth(self.similar)
+    self.assertLess(math.hypot(x - 0.2, y - 0.2), 0.16)
+
+  def test_a_word_that_is_already_living_is_born_at_its_strongest_perception(self):
+    self.live(self.similar, 0.6, 0.6, energy=1.0)
+    self.live(self.similar, 0.7, 0.7, energy=2.0)
+    self.live(self.base, 0.4, 0.4)
+    self.assertEqual(self.birth(self.similar), (0.7, 0.7))
+
+  def test_the_position_stays_in_the_plane_when_the_orbit_overflows(self):
+    self.memory = Memory(config(orbit=[0.9, 0.9]))
+    self.live(self.base, 0.99, 0.99)
+    for word in (self.base + "s", self.base + "es", self.base + "ed"):
+      x, y = self.birth(word)
+      self.assertTrue(0.0 <= x <= 1.0 and 0.0 <= y <= 1.0)
+
+  def test_nothing_is_modified_by_a_birth(self):
+    self.live(self.base, 0.4, 0.4)
+    before = {key: (p.x, p.y, p.energy) for key, p in self.plane.perceptions.items()}
+    self.birth(self.similar)
+    self.assertEqual(before, {key: (p.x, p.y, p.energy) for key, p in self.plane.perceptions.items()})
+
 class ObserveTest(unittest.TestCase):
   def memory(self, window=2, recent=3, decay=0.3):
     return Memory(config(window=window, recent=recent, decay=decay))

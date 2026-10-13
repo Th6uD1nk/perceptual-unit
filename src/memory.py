@@ -50,6 +50,25 @@ class Memory:
     x, y = self.positions["shape"][neighbor]
     return (max(0.0, min(1.0, x + radius * math.cos(angle))), max(0.0, min(1.0, y + radius * math.sin(angle))))
 
+  def birth(self, word, hash_, plane):
+    own = plane.living(hash_)
+    if own:
+      strongest = max(own, key=lambda perception: perception.energy)
+      return strongest.x, strongest.y
+    best = None
+    for other, score in self.lexicon.similar(hash_).items():
+      if score < self.threshold:
+        continue
+      for perception in plane.living(other):
+        if best is None or (score, perception.energy) > (best[0], best[1].energy):
+          best = (score, perception)
+    if best is None:
+      return token_position(word)
+    score, neighbor = best
+    radius = self.orbit[0] + (1.0 - score) * self.orbit[1]
+    angle = token_angle(word) * math.tau
+    return (max(0.0, min(1.0, neighbor.x + radius * math.cos(angle))), max(0.0, min(1.0, neighbor.y + radius * math.sin(angle))))
+
   def observe(self, words):
     if not isinstance(words, list) or not words or any(not isinstance(word, str) or not word for word in words):
       raise ValueError("words: must be a non-empty list of non-empty strings")
