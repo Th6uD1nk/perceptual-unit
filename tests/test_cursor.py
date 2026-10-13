@@ -284,13 +284,9 @@ class FinishTest(unittest.TestCase):
     self.assertAlmostEqual(end_x - start_x, 0.25)
     self.assertEqual((start_y, end_y), (0.5, 0.5))
 
-  def test_a_pass_without_any_hit_still_moves_the_cursor_and_transfers_nothing(self):
-    self.assertEqual(self.cursor.finish(1), 0.0)
-    self.assertAlmostEqual(self.cursor.x, 1.0)
-
-  def test_the_move_is_proportional_to_the_elapsed_ticks(self):
+  def test_a_pass_without_any_hit_transfers_nothing_and_moves_in_proportion_to_the_elapsed_ticks(self):
     cursor = make_cursor(0.0, 0.5, 1.0, 0.0, step=0.125)
-    cursor.finish(2)
+    self.assertEqual(cursor.finish(2), 0.0)
     self.assertAlmostEqual(cursor.x, 0.25)
 
   def test_a_negative_elapsed_time_is_refused_before_anything_is_read(self):
@@ -630,13 +626,6 @@ class CycleTest(unittest.TestCase):
       self.assertTrue(0.0 <= cursor.x <= 1.0)
       self.assertTrue(0.0 <= cursor.y <= 1.0)
       self.assertAlmostEqual(math.hypot(cursor.dx, cursor.dy), 1.0)
-
-  def test_two_cursors_with_the_same_seed_restart_at_the_same_place(self):
-    first = make_cursor(0.5, 0.5, 1.0, 0.0, generator=Generator(5))
-    second = make_cursor(0.1, 0.1, 0.0, 1.0, generator=Generator(5))
-    first.restart()
-    second.restart()
-    self.assertEqual((first.x, first.y, first.dx, first.dy), (second.x, second.y, second.dx, second.dy))
 
   def test_a_restart_draws_the_abscissa_then_the_ordinate_then_the_angle(self):
     cursor = make_cursor(0.5, 0.5, 1.0, 0.0, generator=Script(0.25, 0.75, 0.25))

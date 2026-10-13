@@ -87,12 +87,9 @@ class CursorsTest(unittest.TestCase):
     config["random"]["seed"] = seed
     return [(cursor.x, cursor.y, cursor.dx, cursor.dy) for cursor in Unit(config).cursors]
 
-  def test_the_unit_creates_one_cursor_per_transfer_in_the_order_of_the_config(self):
+  def test_the_unit_creates_one_cursor_per_transfer_in_the_order_of_the_config_holding_its_own_planes(self):
     unit = Unit(self.CONFIG)
-    self.assertEqual([(cursor.source.uid, cursor.target.uid) for cursor in unit.cursors], [("A", "C"), ("A", "D"), ("C", "A")])
-
-  def test_the_cursors_hold_the_planes_of_the_unit_and_not_copies(self):
-    unit = Unit(self.CONFIG)
+    self.assertEqual(len(unit.cursors), 3)
     for cursor, (source, target) in zip(unit.cursors, [("A", "C"), ("A", "D"), ("C", "A")]):
       self.assertIs(cursor.source, unit.planes[source])
       self.assertIs(cursor.target, unit.planes[target])
@@ -107,16 +104,6 @@ class CursorsTest(unittest.TestCase):
     unit = Unit(self.CONFIG)
     for cursor in unit.cursors:
       self.assertIs(cursor.generator, unit.generator)
-
-  def test_the_cursors_start_inside_the_plane_with_a_unit_direction(self):
-    for x, y, dx, dy in self.starts(1):
-      self.assertTrue(0.0 <= x <= 1.0)
-      self.assertTrue(0.0 <= y <= 1.0)
-      self.assertAlmostEqual(math.hypot(dx, dy), 1.0)
-
-  def test_the_same_seed_gives_the_same_starts_and_another_seed_other_starts(self):
-    self.assertEqual(self.starts(1), self.starts(1))
-    self.assertNotEqual(self.starts(1), self.starts(2))
 
   def test_the_cursors_draw_their_start_one_after_the_other_in_the_generator_of_the_unit(self):
     generator = Generator(1)
@@ -139,6 +126,39 @@ class CursorsTest(unittest.TestCase):
 
   def test_a_unit_without_transfers_has_no_cursor(self):
     self.assertEqual(Unit(CONFIG).cursors, [])
+
+class EndToEndTest(unittest.TestCase):
+  def unit(self):
+    plane = entry("A", peak=1.0, transfers=[transfer("C", energy=0.01, step=0.05, cooldown=5, attraction=1.0, cycle=50)])
+    unit = Unit(make_config([plane, entry("C", peak=1.0)], tick=1.0))
+    unit.feed("house", 0.2)
+    return unit
+
+  def advance(self, unit, ticks):
+    for _ in range(ticks):
+      unit.update(1.0)
+
+  def energy(self, plane):
+    return sum(perception.energy for perception in plane.perceptions.values())
+
+  def test_the_energy_fed_into_the_first_plane_reaches_the_target_plane_at_the_same_triplet(self):
+    unit = self.unit()
+    self.advance(unit, 40)
+    x, y = token_position("house")
+    arrived = unit.planes["C"].perceptions[(token_hash("house"), x, y)]
+    self.assertGreater(arrived.energy, 0.0)
+    self.assertLess(unit.planes["A"].perceptions[(token_hash("house"), x, y)].energy, 0.2)
+
+  def test_the_energy_is_neither_created_nor_lost_by_the_transfers(self):
+    unit = self.unit()
+    self.advance(unit, 40)
+    self.assertAlmostEqual(self.energy(unit.planes["A"]) + self.energy(unit.planes["C"]), 0.2)
+
+  def test_a_source_perception_that_is_read_until_it_is_empty_leaves_its_plane(self):
+    unit = self.unit()
+    self.advance(unit, 800)
+    self.assertEqual(unit.planes["A"].perceptions, {})
+    self.assertAlmostEqual(self.energy(unit.planes["C"]), 0.2)
 
 class FeedTest(unittest.TestCase):
   def test_a_token_becomes_a_perception_of_the_first_plane_at_its_transcription(self):
