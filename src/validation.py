@@ -65,18 +65,18 @@ def validate_random(config):
   if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
     fail("config.random.seed", "must be an integer of at least 0")
 
-def validate_cursor(config):
+def validate_cursor(config, path="config"):
   if not isinstance(config, dict):
-    fail("config", "must be an object")
+    fail(path, "must be an object")
   for key, strict in (("energy", True), ("step", True), ("attraction", False), ("distance_power", False), ("impact", False)):
     if key not in config:
-      fail(f"config.{key}", "missing")
+      fail(f"{path}.{key}", "missing")
     value = config[key]
     if isinstance(value, bool) or not isinstance(value, (int, float)) or (value <= 0 if strict else value < 0):
-      fail(f"config.{key}", "must be a number greater than 0" if strict else "must be a number of at least 0")
+      fail(f"{path}.{key}", "must be a number greater than 0" if strict else "must be a number of at least 0")
   for key, minimum in (("cooldown", 0), ("cycle", 1)):
     if key not in config:
-      fail(f"config.{key}", "missing")
+      fail(f"{path}.{key}", "missing")
     value = config[key]
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
-      fail(f"config.{key}", f"must be an integer of at least {minimum}")
+      fail(f"{path}.{key}", f"must be an integer of at least {minimum}")

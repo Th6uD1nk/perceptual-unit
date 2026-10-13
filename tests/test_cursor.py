@@ -3,6 +3,7 @@ import unittest
 
 import support
 from scheduler import Scheduler
+from validation import validate_cursor
 from cursor import Cursor
 from generator import Generator
 from perception import Perception
@@ -69,6 +70,16 @@ class ConfigTest(unittest.TestCase):
 
   def test_a_config_must_be_an_object(self):
     self.assertIn("config:", self.rejected([]))
+
+  def test_the_errors_carry_the_path_given_by_the_caller(self):
+    path = "config.planes[0].transfers[1]"
+    missing = make_config()
+    del missing["step"]
+    invalid = make_config(cooldown=-1)
+    for config, expected in (([], path + ":"), (missing, path + ".step"), (invalid, path + ".cooldown")):
+      with self.assertRaises(ValueError) as caught:
+        validate_cursor(config, path)
+      self.assertIn(expected, str(caught.exception))
 
   def test_every_setting_is_required(self):
     for key in make_config():
