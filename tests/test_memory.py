@@ -5,7 +5,7 @@ import support
 from memory import Memory
 from transcription import token_angle, token_hash, token_position
 
-CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2}}
+CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3}}
 
 class AddTest(unittest.TestCase):
   def setUp(self):
@@ -60,7 +60,7 @@ class OrbitTest(unittest.TestCase):
     self.assertEqual(self.memory.position(self.similar_hash, "usage"), token_position(self.similar))
 
   def test_a_word_below_the_threshold_is_born_at_its_anchor_on_the_shape_map(self):
-    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.9, "orbit": [0.05, 0.1], "window": 2}})
+    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.9, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3}})
     memory.add(self.base)
     hash_ = memory.add(self.similar)
     self.assertEqual(memory.position(hash_, "shape"), token_position(self.similar))
@@ -77,15 +77,15 @@ class OrbitTest(unittest.TestCase):
     self.assertAlmostEqual(math.hypot(bx - ax, by - ay), 0.05 + (1.0 - scores[near]) * 0.1)
 
   def test_the_shape_position_stays_in_the_plane_when_the_orbit_overflows(self):
-    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.9, 0.9], "window": 2}})
+    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.9, 0.9], "window": 2, "recent": 3, "decay": 0.3}})
     memory.add(self.base)
     for word in (self.base + "s", self.base + "es", self.base + "ed", self.base + "ing"):
       x, y = memory.position(memory.add(word), "shape")
       self.assertTrue(0.0 <= x <= 1.0 and 0.0 <= y <= 1.0)
 
 class ObserveTest(unittest.TestCase):
-  def memory(self, window=2):
-    return Memory({"memory": dict(CONFIG["memory"], window=window)})
+  def memory(self, window=2, recent=3, decay=0.3):
+    return Memory({"memory": dict(CONFIG["memory"], window=window, recent=recent, decay=decay)})
 
   def test_a_word_repeated_in_a_flow_counts_once_and_counts_again_in_the_next_flow(self):
     memory = self.memory()
@@ -99,7 +99,7 @@ class ObserveTest(unittest.TestCase):
 
   def test_the_flow_gives_back_the_hashes_in_order_and_the_words_enter_the_lexicon(self):
     memory = self.memory()
-    hashes = memory.observe(["a", "b", "a"])
+    hashes, expression = memory.observe(["a", "b", "a"])
     self.assertEqual(hashes, [token_hash("a"), token_hash("b"), token_hash("a")])
     self.assertEqual(memory.lexicon.word(token_hash("b")), "b")
 
@@ -118,6 +118,39 @@ class ObserveTest(unittest.TestCase):
     memory = self.memory()
     memory.observe(["a", "b", "a", "b"])
     self.assertEqual(memory.strength(token_hash("a"), token_hash("b")), 1.0)
+
+  def test_the_expression_of_a_first_flow_holds_its_words_at_one(self):
+    _, expression = self.memory().observe(["a", "b"])
+    self.assertEqual(expression, {token_hash("a"): 1.0, token_hash("b"): 1.0})
+
+  def test_the_words_of_the_previous_flow_are_expressed_at_the_decay_and_those_of_the_current_flow_at_one(self):
+    memory = self.memory()
+    memory.observe(["a", "b"])
+    _, expression = memory.observe(["b", "c"])
+    self.assertEqual(expression, {token_hash("a"): 0.3, token_hash("b"): 1.0, token_hash("c"): 1.0})
+
+  def test_a_word_of_several_older_flows_keeps_the_strongest_expression(self):
+    memory = self.memory()
+    memory.observe(["a"])
+    memory.observe(["a"])
+    _, expression = memory.observe(["x"])
+    self.assertAlmostEqual(expression[token_hash("a")], 0.3)
+
+  def test_a_flow_that_is_too_old_is_forgotten(self):
+    memory = self.memory(recent=2)
+    for word in ("a", "b", "c"):
+      memory.observe([word])
+    _, expression = memory.observe(["d"])
+    self.assertEqual(sorted(expression), sorted(token_hash(word) for word in ("b", "c", "d")))
+    self.assertAlmostEqual(expression[token_hash("c")], 0.3)
+    self.assertAlmostEqual(expression[token_hash("b")], 0.09)
+
+  def test_the_expression_given_back_is_independent_of_what_the_memory_keeps(self):
+    memory = self.memory()
+    _, expression = memory.observe(["a"])
+    expression[token_hash("a")] = 9.0
+    _, next_expression = memory.observe(["b"])
+    self.assertAlmostEqual(next_expression[token_hash("a")], 0.3)
 
   def test_a_word_is_never_linked_to_itself(self):
     memory = self.memory()
@@ -189,6 +222,22 @@ class ConfigTest(unittest.TestCase):
 
   def test_a_window_of_zero_is_accepted(self):
     Memory(self.with_changes(window=0))
+
+  def test_recent_and_the_decay_are_required(self):
+    for key in ("recent", "decay"):
+      config = self.with_changes()
+      del config["memory"][key]
+      self.assertIn(f"config.memory.{key}", self.rejected(config), key)
+
+  def test_recent_must_be_an_integer_of_at_least_one(self):
+    for recent in (0, -1, 1.5, "3", None, True):
+      self.assertIn("config.memory.recent", self.rejected(self.with_changes(recent=recent)), repr(recent))
+
+  def test_the_decay_must_be_a_number_between_zero_and_one_and_the_limits_are_accepted(self):
+    for decay in (-0.1, 1.1, "0.3", None, True):
+      self.assertIn("config.memory.decay", self.rejected(self.with_changes(decay=decay)), repr(decay))
+    Memory(self.with_changes(decay=0))
+    Memory(self.with_changes(decay=1))
 
   def test_the_orbit_is_required(self):
     config = self.with_changes()

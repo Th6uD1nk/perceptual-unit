@@ -119,6 +119,16 @@ def validate_memory(config):
   window = section["window"]
   if isinstance(window, bool) or not isinstance(window, int) or window < 0:
     fail("config.memory.window", "must be an integer of at least 0")
+  if "recent" not in section:
+    fail("config.memory.recent", "missing")
+  recent = section["recent"]
+  if isinstance(recent, bool) or not isinstance(recent, int) or recent < 1:
+    fail("config.memory.recent", "must be an integer of at least 1")
+  if "decay" not in section:
+    fail("config.memory.decay", "missing")
+  decay = section["decay"]
+  if isinstance(decay, bool) or not isinstance(decay, (int, float)) or not 0 <= decay <= 1:
+    fail("config.memory.decay", "must be a number between 0 and 1")
 
 def validate_cursor(config, path="config"):
   if not isinstance(config, dict):

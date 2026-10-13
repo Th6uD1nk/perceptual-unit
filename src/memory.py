@@ -1,3 +1,4 @@
+import collections
 import math
 
 from lexicon import Lexicon
@@ -14,6 +15,8 @@ class Memory:
     self.threshold = section["threshold"]
     self.orbit = section["orbit"]
     self.window = section["window"]
+    self.decay = section["decay"]
+    self.recent = collections.deque(maxlen=section["recent"])
     self.counts = {}
     self.strengths = {}
     self.positions = {"shape": {}, "usage": {}}
@@ -45,7 +48,20 @@ class Memory:
     for hash_ in dict.fromkeys(hashes):
       self.counts[hash_] = self.count(hash_) + 1
     self.link(hashes)
-    return hashes
+    expression = self.express(hashes)
+    self.recent.append(list(dict.fromkeys(hashes)))
+    return hashes, expression
+
+  def express(self, hashes):
+    energies = {}
+    for age, flow in enumerate(reversed(self.recent), 1):
+      share = self.decay ** age
+      for hash_ in flow:
+        if energies.get(hash_, 0.0) < share:
+          energies[hash_] = share
+    for hash_ in hashes:
+      energies[hash_] = 1.0
+    return energies
 
   def link(self, hashes):
     made = set()
