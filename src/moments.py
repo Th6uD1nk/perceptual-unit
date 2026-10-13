@@ -4,13 +4,14 @@ class Moments:
     self.seen = scheduler.moment
     self.counts = {}
     self.recorded = {}
+    self.totals = {}
 
   def current(self):
     moment = self.scheduler.moment
     if moment != self.seen:
       self.seen = moment
       for old in [old for old in self.recorded if old < moment and not self.count(old)]:
-        del self.recorded[old]
+        self.release(old)
     return moment
 
   def count(self, moment):
@@ -28,7 +29,20 @@ class Moments:
       return
     del self.counts[moment]
     if moment < self.scheduler.moment:
-      self.recorded.pop(moment, None)
+      self.release(moment)
+
+  def release(self, moment):
+    entry = self.recorded.pop(moment, None)
+    if entry is None:
+      return
+    for neighbors, middles in entry["contexts"].items():
+      total = self.totals[neighbors]
+      for middle, number in middles.items():
+        total[middle] -= number
+        if not total[middle]:
+          del total[middle]
+      if not total:
+        del self.totals[neighbors]
 
   def record(self, hashes):
     event = list(hashes)
@@ -39,6 +53,8 @@ class Moments:
       right = event[index + 1] if index + 1 < len(event) else None
       middles = entry["contexts"].setdefault((left, right), {})
       middles[middle] = middles.get(middle, 0) + 1
+      total = self.totals.setdefault((left, right), {})
+      total[middle] = total.get(middle, 0) + 1
     return list(event)
 
   def events(self, moment):
@@ -48,3 +64,6 @@ class Moments:
   def contexts(self, moment):
     self.current()
     return {neighbors: dict(middles) for neighbors, middles in self.recorded.get(moment, {"contexts": {}})["contexts"].items()}
+
+  def between(self, left, right):
+    return dict(self.totals.get((left, right), {}))

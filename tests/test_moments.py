@@ -122,6 +122,62 @@ class ContextTest(unittest.TestCase):
     self.moments.died(0)
     self.assertEqual(self.moments.contexts(0), {})
 
+class TotalTest(unittest.TestCase):
+  def setUp(self):
+    self.moments = support.moments()
+
+  def test_between_gives_the_words_seen_between_two_neighbors_with_their_count(self):
+    self.moments.record(["a", "b", "c"])
+    self.moments.record(["a", "b", "c"])
+    self.moments.record(["a", "x", "c"])
+    self.assertEqual(self.moments.between("a", "c"), {"b": 2, "x": 1})
+
+  def test_the_edges_of_a_flow_are_asked_with_none(self):
+    self.moments.record(["a", "b"])
+    self.assertEqual(self.moments.between(None, "b"), {"a": 1})
+    self.assertEqual(self.moments.between("a", None), {"b": 1})
+
+  def test_an_unknown_pair_gives_an_empty_answer(self):
+    self.assertEqual(self.moments.between("a", "c"), {})
+
+  def test_between_adds_the_counts_of_the_moments(self):
+    self.moments.born(0)
+    self.moments.record(["a", "b", "c"])
+    self.moments.scheduler.moment = 1
+    self.moments.born(1)
+    self.moments.record(["a", "b", "c"])
+    self.assertEqual(self.moments.between("a", "c"), {"b": 2})
+
+  def test_the_release_of_a_moment_takes_off_only_what_it_brought(self):
+    self.moments.born(0)
+    self.moments.record(["a", "b", "c"])
+    self.moments.scheduler.moment = 1
+    self.moments.born(1)
+    self.moments.record(["a", "b", "c"])
+    self.moments.record(["a", "x", "c"])
+    self.moments.died(0)
+    self.assertEqual(self.moments.between("a", "c"), {"b": 1, "x": 1})
+
+  def test_nothing_is_left_when_every_moment_is_released(self):
+    self.moments.born(0)
+    self.moments.record(["a", "b", "c"])
+    self.moments.scheduler.moment = 1
+    self.moments.died(0)
+    self.assertEqual(self.moments.totals, {})
+    self.assertEqual(self.moments.between("a", "c"), {})
+
+  def test_a_moment_that_closes_without_perception_is_taken_off_the_totals_at_the_change_of_moment(self):
+    self.moments.record(["a", "b"])
+    self.moments.scheduler.moment = 1
+    self.moments.current()
+    self.assertEqual(self.moments.totals, {})
+
+  def test_the_answer_is_independent_of_the_stored_totals(self):
+    self.moments.record(["a", "b", "c"])
+    answer = self.moments.between("a", "c")
+    answer["b"] = 9
+    self.assertEqual(self.moments.between("a", "c"), {"b": 1})
+
 class ReleaseTest(unittest.TestCase):
   def setUp(self):
     self.moments = support.moments()
