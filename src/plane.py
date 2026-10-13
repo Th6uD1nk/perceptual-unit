@@ -2,6 +2,11 @@ import collections
 
 from perception import Perception
 
+def checked_cost(cost):
+  if isinstance(cost, bool) or not isinstance(cost, int) or cost < 1:
+    raise ValueError("cost: must be an integer of at least 1")
+  return cost
+
 class Plane:
   def __init__(self, config, moments):
     self.uid = config["uid"]
@@ -66,8 +71,12 @@ class Plane:
     return used
 
   def visit_steps(self, perception):
+    cost = 1
     for step in self.steps:
-      step(perception)
+      result = step(perception)
+      if result is not None:
+        cost = max(cost, checked_cost(result))
+    return cost
 
   def visit(self, units, on_visit=None):
     if units <= 0:
@@ -77,9 +86,12 @@ class Plane:
     used = 0
     while self.visit_queue and used < units:
       perception = self.visit_queue.popleft()
-      used += 1
+      cost = 1
       if self.perceptions.get(perception.key) is perception and on_visit is not None:
-        on_visit(perception)
+        result = on_visit(perception)
+        if result is not None:
+          cost = checked_cost(result)
+      used += cost
     finished = not self.visit_queue
     if finished:
       self.visit_queue = None

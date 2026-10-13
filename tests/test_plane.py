@@ -334,6 +334,22 @@ class VisitTest(unittest.TestCase):
     self.visit(10)
     self.assertEqual(self.seen[3:], ["word0", "word1", "word2", "late"])
 
+  def test_a_step_that_costs_more_makes_each_perception_count_for_its_cost(self):
+    self.assertEqual(self.plane.visit(100, lambda perception: 3), (9, True))
+
+  def test_a_perception_that_costs_more_than_what_is_left_is_still_visited_and_the_pass_is_cut_after_it(self):
+    self.assertEqual(self.plane.visit(2, lambda perception: self.seen.append(perception.hash) or 3), (3, False))
+    self.assertEqual(self.seen, ["word0"])
+    self.plane.visit(2, lambda perception: self.seen.append(perception.hash) or 3)
+    self.assertEqual(self.seen, ["word0", "word1"])
+
+  def test_a_cost_that_is_not_an_integer_of_at_least_one_is_refused(self):
+    for cost in (0, -1, 1.5, "1", True):
+      plane = make_plane()
+      plane.receive(*POINT, 1.0)
+      with self.assertRaises(ValueError, msg=repr(cost)):
+        plane.visit(5, lambda perception, cost=cost: cost)
+
   def test_the_visit_does_not_need_a_callback(self):
     self.assertEqual(self.plane.visit(10), (3, True))
 
@@ -382,6 +398,24 @@ class RunTest(unittest.TestCase):
     scheduler.advance(2.0)
     self.assertEqual(first, [f"word{index}" for index in range(4)])
     self.assertEqual(second, first)
+
+  def test_the_cost_of_a_perception_is_the_greatest_cost_of_its_steps(self):
+    self.plane.register(self.scheduler, lambda perception: 2, lambda: None)
+    self.plane.register(self.scheduler, lambda perception: None, lambda: None)
+    self.assertEqual(self.plane.run(100), 8)
+
+  def test_a_costly_step_makes_the_budget_cut_the_pass_after_the_perception_that_overran_it(self):
+    scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 4, "moment": 1000}})
+    self.plane.register(scheduler, lambda perception: self.seen.append(perception.hash) or 3, lambda: self.ended.append("end"))
+    scheduler.advance(1.0)
+    self.assertEqual((len(self.seen), self.ended), (2, []))
+    scheduler.advance(1.0)
+    self.assertEqual((len(self.seen), self.ended), (4, ["end"]))
+
+  def test_a_step_that_gives_back_an_invalid_cost_is_refused(self):
+    self.plane.register(self.scheduler, lambda perception: 0, lambda: None)
+    with self.assertRaises(ValueError):
+      self.plane.run(10)
 
   def test_a_run_gives_back_the_number_of_perceptions_it_visited(self):
     self.register()
