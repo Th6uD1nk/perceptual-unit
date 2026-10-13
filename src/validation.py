@@ -19,6 +19,10 @@ def validate_plane(entry, path, known):
   peak = entry["peak"]
   if isinstance(peak, bool) or not isinstance(peak, (int, float)) or peak <= 0:
     fail(f"{path}.peak", "must be a number greater than 0")
+  if "relax" not in entry:
+    fail(f"{path}.relax", "missing")
+  if entry["relax"] not in (None, "shape"):
+    fail(f"{path}.relax", "must be null or 'shape'")
 
 def validate_transfers(entry, path, known):
   if "transfers" not in entry:
@@ -54,6 +58,7 @@ def validate_config(config):
     validate_transfers(entry, f"config.planes[{index}]", known)
   validate_scheduler(config)
   validate_random(config)
+  validate_memory(config)
 
 def validate_scheduler(config):
   if not isinstance(config, dict):

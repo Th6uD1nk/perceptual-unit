@@ -9,14 +9,16 @@ from plane import Plane
 from transcription import token_hash, token_position
 from unit import Unit
 
-def entry(uid, peak=1.0, transfers=None):
-  return {"uid": uid, "peak": peak, "transfers": transfers if transfers is not None else []}
+MEMORY = {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0}
+
+def entry(uid, peak=1.0, transfers=None, relax=None):
+  return {"uid": uid, "peak": peak, "relax": relax, "transfers": transfers if transfers is not None else []}
 
 def transfer(target, **changes):
   return dict({"target": target, "energy": 0.0625, "step": 0.25, "cooldown": 0, "attraction": 0.0, "distance_power": 2.0, "impact": 0.0, "cycle": 10}, **changes)
 
 def make_config(planes, tick=4.0, seed=1, moment=1000):
-  return {"scheduler": {"tick": tick, "budget": 0, "moment": moment}, "random": {"seed": seed}, "planes": planes}
+  return {"scheduler": {"tick": tick, "budget": 0, "moment": moment}, "random": {"seed": seed}, "memory": MEMORY, "planes": planes}
 
 CONFIG = make_config([entry("A", 4.0), entry("C", 2.0), entry("D", 1.0)])
 
@@ -167,6 +169,78 @@ class EndToEndTest(unittest.TestCase):
     self.advance(unit, 800)
     self.assertEqual(unit.planes["A"].perceptions, {})
     self.assertAlmostEqual(self.energy(unit.planes["C"]), 0.2)
+
+def similar_pair_in_range():
+  for base in ("cat", "dog", "pig", "cow", "hen", "bee", "fox", "owl", "ant", "ape", "elk", "emu", "yak", "rat", "bat"):
+    first, second = token_position(base), token_position(base + "s")
+    distance = math.hypot(first[0] - second[0], first[1] - second[1])
+    if 0.2 < distance < 0.45:
+      return base, base + "s"
+  raise AssertionError("no similar pair in range")
+
+class RelaxationTest(unittest.TestCase):
+  def unit(self, relax):
+    return Unit(make_config([entry("A", peak=4.0, relax=relax)], tick=1.0))
+
+  def distance(self, unit, words):
+    first, second = (next(perception for perception in unit.planes["A"].perceptions.values() if perception.hash == token_hash(word)) for word in words)
+    return math.hypot(first.x - second.x, first.y - second.y)
+
+  def test_the_unit_has_a_memory_made_from_its_section_of_the_config(self):
+    unit = self.unit(None)
+    self.assertEqual(unit.memory.reach, MEMORY["range"])
+    self.assertEqual(unit.memory.lexicon.floor, MEMORY["floor"])
+
+  def test_the_words_of_a_flow_enter_the_lexicon_of_the_memory(self):
+    unit = self.unit(None)
+    unit.feed_flow(["cat", "cats"], 1.0)
+    self.assertEqual(unit.memory.lexicon.word(token_hash("cats")), "cats")
+    self.assertIn(token_hash("cats"), unit.memory.lexicon.similar(token_hash("cat")))
+
+  def test_the_words_of_a_relaxed_plane_that_look_alike_come_closer_and_those_of_a_plain_plane_do_not(self):
+    words = list(similar_pair_in_range())
+    relaxed, plain = self.unit("shape"), self.unit(None)
+    for unit in (relaxed, plain):
+      unit.feed_flow(words, 1.0)
+    before = self.distance(plain, words)
+    for unit in (relaxed, plain):
+      unit.update(30.0)
+    self.assertAlmostEqual(self.distance(plain, words), before)
+    self.assertLess(self.distance(relaxed, words), before)
+
+  def test_nothing_moves_in_a_unit_that_has_received_nothing(self):
+    unit = self.unit("shape")
+    unit.update(50.0)
+    self.assertEqual(unit.planes["A"].perceptions, {})
+
+  def test_the_energy_is_conserved_when_a_relaxed_plane_also_transfers(self):
+    first, second = similar_pair_in_range()
+    plane = entry("A", peak=1.0, relax="shape", transfers=[transfer("C", energy=0.01, step=0.05, cooldown=5, attraction=1.0, cycle=50)])
+    unit = Unit(make_config([plane, entry("C", peak=1.0)], tick=1.0))
+    unit.feed_flow([first, second], 0.2)
+    unit.update(40.0)
+    total = sum(perception.energy for name in ("A", "C") for perception in unit.planes[name].perceptions.values())
+    self.assertAlmostEqual(total, 0.4)
+    self.assertGreater(sum(perception.energy for perception in unit.planes["C"].perceptions.values()), 0.0)
+
+class ConfigWiringTest(unittest.TestCase):
+  def rejected(self, config):
+    with self.assertRaises(ValueError) as caught:
+      Unit(config)
+    return str(caught.exception)
+
+  def test_the_memory_section_is_required_by_the_unit(self):
+    config = make_config([entry("A")])
+    del config["memory"]
+    self.assertIn("config.memory", self.rejected(config))
+
+  def test_the_relax_of_a_plane_is_required_and_must_be_null_or_shape(self):
+    plane = entry("A")
+    del plane["relax"]
+    self.assertIn("config.planes[0].relax", self.rejected(make_config([plane])))
+    for relax in ("usage", 3, True, ["shape"]):
+      self.assertIn("config.planes[0].relax", self.rejected(make_config([entry("A", relax=relax)])), repr(relax))
+    Unit(make_config([entry("A", relax="shape")]))
 
 class FlowTest(unittest.TestCase):
   def perception(self, unit, token, moment=0):

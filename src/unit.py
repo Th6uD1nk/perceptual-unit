@@ -2,8 +2,10 @@ import copy
 
 from cursor import Cursor
 from generator import Generator
+from memory import Memory
 from moments import Moments
 from plane import Plane
+from relaxation import Relaxation
 from scheduler import Scheduler
 from transcription import token_hash, token_position
 from validation import validate_config
@@ -24,6 +26,10 @@ class Unit:
     for cursor in self.cursors:
       cursor.restart()
       cursor.start(self.scheduler)
+    self.memory = Memory(self.config)
+    self.relaxations = [Relaxation(self.memory, self.planes[entry["uid"]]) for entry in self.config["planes"] if entry["relax"] == "shape"]
+    for relaxation in self.relaxations:
+      relaxation.start(self.scheduler)
 
   @property
   def ticks(self):
@@ -36,7 +42,7 @@ class Unit:
     if not isinstance(tokens, list) or not tokens or any(not isinstance(token, str) or not token for token in tokens):
       raise ValueError("tokens: must be a non-empty list of non-empty strings")
     plane = next(iter(self.planes.values()))
-    hashes = [token_hash(token) for token in tokens]
+    hashes = [self.memory.lexicon.add(token) for token in tokens]
     accepted = []
     for token, hash_ in zip(tokens, hashes):
       x, y = token_position(token)
