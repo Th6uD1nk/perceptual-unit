@@ -2,6 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 import support
+from generator import Generator
 from scheduler import Scheduler
 from moments import Moments
 from perception import Perception
@@ -225,6 +226,58 @@ class MoveTest(unittest.TestCase):
         self.plane.move(other, 0.25, 0.75)
     self.plane.visit(10, hook)
     self.assertEqual(seen, [KEY])
+
+class MomentIndexTest(unittest.TestCase):
+  def setUp(self):
+    self.clock = SimpleNamespace(moment=0)
+    self.plane = make_plane(peak=4.0, moments=Moments(self.clock))
+
+  def test_the_perceptions_of_a_moment_are_listed_without_those_of_the_others(self):
+    self.plane.receive("a", 0.1, 0.1, 1.0)
+    self.plane.receive("b", 0.2, 0.2, 1.0)
+    self.clock.moment = 1
+    self.plane.receive("c", 0.3, 0.3, 1.0)
+    self.assertEqual(sorted(perception.hash for perception in self.plane.of_moment(0)), ["a", "b"])
+    self.assertEqual([perception.hash for perception in self.plane.of_moment(1)], ["c"])
+
+  def test_a_reinforcement_does_not_list_a_perception_twice(self):
+    self.plane.receive(*POINT, 1.0)
+    self.plane.receive(*POINT, 1.0)
+    self.assertEqual(len(self.plane.of_moment(0)), 1)
+
+  def test_a_moment_without_perception_gives_an_empty_list_and_leaves_no_entry(self):
+    self.assertEqual(self.plane.of_moment(5), [])
+    self.plane.receive(*POINT, 1.0)
+    self.plane.remove(self.plane.perceptions[KEY])
+    self.assertEqual(self.plane.of_moment(0), [])
+    self.assertEqual(self.plane.by_moment, {})
+
+  def test_the_list_given_back_is_a_copy(self):
+    self.plane.receive(*POINT, 1.0)
+    self.plane.of_moment(0).clear()
+    self.assertEqual(len(self.plane.of_moment(0)), 1)
+
+  def test_the_index_follows_the_perceptions_through_receptions_takes_moves_merges_and_removals(self):
+    generator = Generator(5)
+    positions = [0.25, 0.5, 0.75]
+    for _ in range(300):
+      self.clock.moment = generator.draw(3)
+      action = generator.draw(4)
+      hash_ = f"word{generator.draw(3)}"
+      x = positions[generator.draw(3)]
+      if action == 0:
+        self.plane.receive(hash_, x, 0.5, 0.5)
+      elif self.plane.perceptions:
+        perception = list(self.plane.perceptions.values())[generator.draw(len(self.plane.perceptions))]
+        if action == 1:
+          self.plane.take(perception, 0.4)
+        elif action == 2:
+          self.plane.move(perception, x, 0.5)
+        else:
+          self.plane.remove(perception)
+      for moment in range(3):
+        expected = {id(perception) for perception in self.plane.perceptions.values() if perception.moment == moment}
+        self.assertEqual({id(perception) for perception in self.plane.of_moment(moment)}, expected)
 
 class RemoveTest(unittest.TestCase):
   def setUp(self):

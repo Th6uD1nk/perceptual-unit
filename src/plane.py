@@ -13,6 +13,7 @@ class Plane:
     self.peak = config["peak"]
     self.moments = moments
     self.perceptions = {}
+    self.by_moment = {}
     self.visit_queue = None
     self.scheduler = None
     self.steps = []
@@ -28,6 +29,7 @@ class Plane:
       return 0.0
     if perception is None:
       perception = self.perceptions[key] = Perception(hash_, x, y, moment)
+      self.by_moment.setdefault(moment, {})[key] = perception
       self.moments.born(moment)
     perception.energy += accepted
     return accepted
@@ -43,9 +45,11 @@ class Plane:
     existing = self.perceptions.get(key)
     if existing is None:
       del self.perceptions[perception.key]
+      del self.by_moment[perception.moment][perception.key]
       perception.x = x
       perception.y = y
       self.perceptions[perception.key] = perception
+      self.by_moment[perception.moment][perception.key] = perception
       return perception
     moved = min(perception.energy, self.peak - existing.energy)
     existing.energy += moved
@@ -54,10 +58,16 @@ class Plane:
       self.remove(perception)
     return existing
 
+  def of_moment(self, moment):
+    return list(self.by_moment.get(moment, {}).values())
+
   def remove(self, perception):
     if self.perceptions.get(perception.key) is not perception:
       return False
     del self.perceptions[perception.key]
+    del self.by_moment[perception.moment][perception.key]
+    if not self.by_moment[perception.moment]:
+      del self.by_moment[perception.moment]
     self.moments.died(perception.moment)
     return True
 
