@@ -2,6 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 import support
+from scheduler import Scheduler
 from moments import Moments
 from perception import Perception
 from plane import Plane
@@ -335,6 +336,61 @@ class VisitTest(unittest.TestCase):
 
   def test_the_visit_does_not_need_a_callback(self):
     self.assertEqual(self.plane.visit(10), (3, True))
+
+class RunTest(unittest.TestCase):
+  def setUp(self):
+    self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0, "moment": 1000}})
+    self.plane = make_plane()
+    for index in range(4):
+      self.plane.receive(f"word{index}", 0.1 * index, 0.5, 1.0)
+    self.seen = []
+    self.ended = []
+
+  def register(self, name="a"):
+    self.plane.register(self.scheduler, lambda perception: self.seen.append((name, perception.hash)), lambda: self.ended.append(name))
+
+  def test_a_registered_step_sees_every_perception_of_a_pass_in_order(self):
+    self.register()
+    self.scheduler.advance(1.0)
+    self.assertEqual(self.seen, [("a", f"word{index}") for index in range(4)])
+
+  def test_every_registered_step_sees_every_perception_of_the_same_pass(self):
+    self.register("a")
+    self.register("b")
+    self.scheduler.advance(1.0)
+    self.assertEqual(sorted(self.seen), sorted([(name, f"word{index}") for name in ("a", "b") for index in range(4)]))
+
+  def test_each_end_of_pass_is_called_once_per_pass(self):
+    self.register("a")
+    self.register("b")
+    self.scheduler.advance(2.0)
+    self.assertEqual(self.ended, ["a", "b", "a", "b"])
+
+  def test_a_pass_cut_by_the_budget_calls_its_ends_only_when_it_is_complete(self):
+    scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 2, "moment": 1000}})
+    self.plane.register(scheduler, lambda perception: self.seen.append(perception.hash), lambda: self.ended.append("end"))
+    scheduler.advance(1.0)
+    self.assertEqual((len(self.seen), self.ended), (2, []))
+    scheduler.advance(1.0)
+    self.assertEqual((len(self.seen), self.ended), (4, ["end"]))
+
+  def test_a_pass_cut_by_the_budget_still_shows_every_perception_to_every_step(self):
+    scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 2, "moment": 1000}})
+    first, second = [], []
+    self.plane.register(scheduler, lambda perception: first.append(perception.hash), lambda: None)
+    self.plane.register(scheduler, lambda perception: second.append(perception.hash), lambda: None)
+    scheduler.advance(2.0)
+    self.assertEqual(first, [f"word{index}" for index in range(4)])
+    self.assertEqual(second, first)
+
+  def test_a_run_gives_back_the_number_of_perceptions_it_visited(self):
+    self.register()
+    self.assertEqual(self.plane.run(10), 4)
+
+  def test_a_plane_without_registration_submits_no_work(self):
+    self.scheduler.advance(3.0)
+    self.assertEqual(self.seen, [])
+    self.assertEqual(len(self.scheduler.queue), 0)
 
 class StateTest(unittest.TestCase):
   def test_the_state_of_an_empty_plane_has_no_perception(self):

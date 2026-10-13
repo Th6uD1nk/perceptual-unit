@@ -309,10 +309,17 @@ class RunTest(unittest.TestCase):
   def ticks(self, count):
     self.scheduler.advance(float(count))
 
-  def test_a_run_gives_back_the_number_of_perceptions_it_visited(self):
-    self.source.receive("first", 0.5, 0.9, 0.0625)
-    self.source.receive("second", 0.6, 0.9, 0.0625)
-    self.assertEqual(self.cursor.run(10), 2)
+  def test_two_cursors_of_one_plane_both_see_every_perception_of_each_pass(self):
+    other = Plane({"uid": "D", "peak": 10.0}, support.moments())
+    twin = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, other, step=0.125, energy=0.03125)
+    twin.start(self.scheduler)
+    self.cursor.energy = 0.03125
+    self.source.receive("first", 0.34375, 0.5, 0.0625)
+    self.source.receive("second", 0.375, 0.5, 0.0625)
+    self.ticks(2)
+    for target in (self.target, other):
+      self.assertEqual(target.perceptions[("first", 0.34375, 0.5, 0)].energy, 0.03125)
+      self.assertEqual(target.perceptions[("second", 0.375, 0.5, 0)].energy, 0.03125)
 
   def test_a_started_cursor_waits_for_a_tick(self):
     self.assertEqual(self.cursor.segment, None)

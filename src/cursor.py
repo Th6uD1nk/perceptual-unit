@@ -163,14 +163,10 @@ class Cursor:
     self.scheduler = scheduler
     self.cycle_start = scheduler.ticks
     self.moved_tick = scheduler.ticks
-    scheduler.submit(self.run)
+    self.source.register(scheduler, self.on_visit, self.end)
 
-  def run(self, units):
-    used, finished = self.source.visit(units, self.on_visit)
-    if finished:
-      self.finish(max(1, self.now - self.moved_tick))
-    self.scheduler.submit(self.run)
-    return used
+  def end(self):
+    self.finish(max(1, self.now - self.moved_tick))
 
 def distance_to_segment(x, y, start_x, start_y, end_x, end_y):
   dx, dy = end_x - start_x, end_y - start_y

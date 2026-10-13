@@ -9,6 +9,9 @@ class Plane:
     self.moments = moments
     self.perceptions = {}
     self.visit_queue = None
+    self.scheduler = None
+    self.steps = []
+    self.ends = []
 
   def receive(self, hash_, x, y, amount):
     moment = self.moments.current()
@@ -46,6 +49,25 @@ class Plane:
     offered = min(amount, perception.energy)
     accepted = target.receive(perception.hash, perception.x, perception.y, offered)
     return self.take(perception, accepted)
+
+  def register(self, scheduler, step, end):
+    self.steps.append(step)
+    self.ends.append(end)
+    if self.scheduler is None:
+      self.scheduler = scheduler
+      scheduler.submit(self.run)
+
+  def run(self, units):
+    used, finished = self.visit(units, self.visit_steps)
+    if finished:
+      for end in self.ends:
+        end()
+    self.scheduler.submit(self.run)
+    return used
+
+  def visit_steps(self, perception):
+    for step in self.steps:
+      step(perception)
 
   def visit(self, units, on_visit=None):
     if units <= 0:
