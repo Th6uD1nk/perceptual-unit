@@ -38,5 +38,36 @@ class CountTest(unittest.TestCase):
     with self.assertRaises(ValueError):
       self.moments.died(1)
 
+class EventTest(unittest.TestCase):
+  def setUp(self):
+    self.moments = support.moments()
+
+  def test_an_event_enters_the_moment_in_progress(self):
+    self.moments.record(["a", "b"])
+    self.assertEqual(self.moments.events(0), [["a", "b"]])
+
+  def test_the_order_and_the_duplicates_of_the_hashes_and_the_order_of_the_events_are_kept(self):
+    self.moments.record(["a", "b", "a"])
+    self.moments.record(["c"])
+    self.assertEqual(self.moments.events(0), [["a", "b", "a"], ["c"]])
+
+  def test_each_moment_has_its_own_events(self):
+    self.moments.record(["a"])
+    self.moments.scheduler.moment = 1
+    self.moments.record(["b"])
+    self.assertEqual(self.moments.events(0), [["a"]])
+    self.assertEqual(self.moments.events(1), [["b"]])
+
+  def test_an_event_is_independent_of_the_list_it_was_made_from_and_of_what_is_given_back(self):
+    source = ["a", "b"]
+    given = self.moments.record(source)
+    source.append("c")
+    given.append("d")
+    self.moments.events(0)[0].append("e")
+    self.assertEqual(self.moments.events(0), [["a", "b"]])
+
+  def test_a_moment_without_events_gives_an_empty_list(self):
+    self.assertEqual(self.moments.events(9), [])
+
 if __name__ == "__main__":
   unittest.main()
