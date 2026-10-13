@@ -27,7 +27,7 @@ class Unit:
       cursor.restart()
       cursor.start(self.scheduler)
     self.memory = Memory(self.config)
-    self.relaxations = [Relaxation(self.memory, self.planes[entry["uid"]]) for entry in self.config["planes"] if entry["relax"] == "shape"]
+    self.relaxations = [Relaxation(self.memory, self.planes[entry["uid"]], entry["relax"]) for entry in self.config["planes"] if entry["relax"] is not None]
     for relaxation in self.relaxations:
       relaxation.start(self.scheduler)
 

@@ -34,6 +34,24 @@ class RelaxationTest(unittest.TestCase):
     self.assertEqual((cat.x, cat.y), (x, y))
     self.assertIs(self.plane.perceptions[cat.key], cat)
 
+  def test_a_usage_relaxation_moves_a_perception_to_the_position_of_the_usage_pull(self):
+    relaxation = Relaxation(self.memory, self.plane, "usage")
+    cat = self.add("cat", 0.3, 0.5)
+    self.add("dog", 0.5, 0.5)
+    self.plane.moments.record([cat.hash, token_hash("dog")])
+    x, y, cost = self.memory.pull_usage(cat, self.plane, self.plane.moments)
+    self.assertEqual(relaxation.on_visit(cat), cost)
+    self.assertEqual((cat.x, cat.y), (x, y))
+
+  def test_the_usage_and_the_shape_relaxations_do_not_move_alike(self):
+    cats = self.add("cats", 0.7, 0.5)
+    cat = self.add("cat", 0.3, 0.5)
+    Relaxation(self.memory, self.plane, "usage").on_visit(cat)
+    usage_x = cat.x
+    self.plane.move(cat, 0.3, 0.5)
+    Relaxation(self.memory, self.plane, "shape").on_visit(cat)
+    self.assertNotEqual(cat.x, usage_x)
+
   def test_the_visit_gives_back_the_cost_of_the_pull(self):
     cat = self.add("cat", 0.3, 0.5)
     self.add("dog", 0.5, 0.5)

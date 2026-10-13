@@ -21,8 +21,8 @@ def validate_plane(entry, path, known):
     fail(f"{path}.peak", "must be a number greater than 0")
   if "relax" not in entry:
     fail(f"{path}.relax", "missing")
-  if entry["relax"] not in (None, "shape"):
-    fail(f"{path}.relax", "must be null or 'shape'")
+  if entry["relax"] not in (None, "shape", "usage"):
+    fail(f"{path}.relax", "must be null, 'shape' or 'usage'")
 
 def validate_transfers(entry, path, known):
   if "transfers" not in entry:

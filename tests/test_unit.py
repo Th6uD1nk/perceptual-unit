@@ -208,6 +208,16 @@ class RelaxationTest(unittest.TestCase):
     self.assertAlmostEqual(self.distance(plain, words), before)
     self.assertLess(self.distance(relaxed, words), before)
 
+  def test_a_usage_plane_gets_a_usage_relaxation_and_its_words_move(self):
+    words = list(similar_pair_in_range())
+    unit = self.unit("usage")
+    self.assertEqual([relaxation.kind for relaxation in unit.relaxations], ["usage"])
+    unit.feed_flow(words, 1.0)
+    before = {key: (p.x, p.y) for key, p in unit.planes["A"].perceptions.items()}
+    unit.update(30.0)
+    after = {p.key: (p.x, p.y) for p in unit.planes["A"].perceptions.values()}
+    self.assertNotEqual(sorted(before.values()), sorted(after.values()))
+
   def test_nothing_moves_in_a_unit_that_has_received_nothing(self):
     unit = self.unit("shape")
     unit.update(50.0)
@@ -238,9 +248,10 @@ class ConfigWiringTest(unittest.TestCase):
     plane = entry("A")
     del plane["relax"]
     self.assertIn("config.planes[0].relax", self.rejected(make_config([plane])))
-    for relax in ("usage", 3, True, ["shape"]):
+    for relax in ("other", 3, True, ["shape"]):
       self.assertIn("config.planes[0].relax", self.rejected(make_config([entry("A", relax=relax)])), repr(relax))
     Unit(make_config([entry("A", relax="shape")]))
+    Unit(make_config([entry("A", relax="usage")]))
 
 class FlowTest(unittest.TestCase):
   def perception(self, unit, token, moment=0):
