@@ -5,7 +5,12 @@ import support
 from memory import Memory
 from transcription import token_angle, token_hash, token_position
 
-CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3}}
+BASE = {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0}
+
+def config(**changes):
+  return {"memory": dict(BASE, **changes)}
+
+CONFIG = config()
 
 class AddTest(unittest.TestCase):
   def setUp(self):
@@ -60,7 +65,7 @@ class OrbitTest(unittest.TestCase):
     self.assertEqual(self.memory.position(self.similar_hash, "usage"), token_position(self.similar))
 
   def test_a_word_below_the_threshold_is_born_at_its_anchor_on_the_shape_map(self):
-    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.9, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3}})
+    memory = Memory(config(threshold=0.9))
     memory.add(self.base)
     hash_ = memory.add(self.similar)
     self.assertEqual(memory.position(hash_, "shape"), token_position(self.similar))
@@ -77,7 +82,7 @@ class OrbitTest(unittest.TestCase):
     self.assertAlmostEqual(math.hypot(bx - ax, by - ay), 0.05 + (1.0 - scores[near]) * 0.1)
 
   def test_the_shape_position_stays_in_the_plane_when_the_orbit_overflows(self):
-    memory = Memory({"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.9, 0.9], "window": 2, "recent": 3, "decay": 0.3}})
+    memory = Memory(config(orbit=[0.9, 0.9]))
     memory.add(self.base)
     for word in (self.base + "s", self.base + "es", self.base + "ed", self.base + "ing"):
       x, y = memory.position(memory.add(word), "shape")
@@ -85,7 +90,7 @@ class OrbitTest(unittest.TestCase):
 
 class ObserveTest(unittest.TestCase):
   def memory(self, window=2, recent=3, decay=0.3):
-    return Memory({"memory": dict(CONFIG["memory"], window=window, recent=recent, decay=decay)})
+    return Memory(config(window=window, recent=recent, decay=decay))
 
   def test_a_word_repeated_in_a_flow_counts_once_and_counts_again_in_the_next_flow(self):
     memory = self.memory()
@@ -171,6 +176,96 @@ class ObserveTest(unittest.TestCase):
         memory.observe(words)
     self.assertEqual((memory.counts, memory.strengths, memory.lexicon.words), ({}, {}, {}))
 
+class RelaxTest(unittest.TestCase):
+  def setUp(self):
+    self.memory = Memory(CONFIG)
+    self.cat = self.memory.add("cat")
+    self.cats = self.memory.add("cats")
+    self.dog = self.memory.add("dog")
+    self.place(self.memory, cat=(0.02, 0.02), cats=(0.98, 0.98), dog=(0.02, 0.98))
+
+  def place(self, memory, **positions):
+    for name, position in positions.items():
+      memory.positions["shape"][token_hash(name)] = position
+
+  def distance(self, memory, first, second):
+    ax, ay = memory.position(token_hash(first), "shape")
+    bx, by = memory.position(token_hash(second), "shape")
+    return math.hypot(bx - ax, by - ay)
+
+  def test_two_similar_words_that_are_far_apart_come_closer_when_they_appear_together(self):
+    self.place(self.memory, cat=(0.3, 0.5), cats=(0.7, 0.5))
+    self.memory.observe(["cat", "cats"])
+    self.assertLess(self.distance(self.memory, "cat", "cats"), 0.4)
+
+  def test_two_dissimilar_words_that_are_far_apart_come_closer_too(self):
+    self.place(self.memory, cat=(0.3, 0.5), dog=(0.7, 0.5))
+    self.memory.observe(["cat", "dog"])
+    self.assertLess(self.distance(self.memory, "cat", "dog"), 0.4)
+
+  def test_two_words_that_are_closer_than_their_rest_distance_move_apart(self):
+    self.place(self.memory, cat=(0.5, 0.5), dog=(0.6, 0.5))
+    self.memory.observe(["cat", "dog"])
+    self.assertGreater(self.distance(self.memory, "cat", "dog"), 0.1)
+
+  def test_a_neighbor_beyond_the_reach_has_no_effect(self):
+    self.place(self.memory, cat=(0.1, 0.5), dog=(0.9, 0.5))
+    self.memory.observe(["cat"])
+    self.assertEqual(self.memory.position(self.cat, "shape"), (0.1, 0.5))
+
+  def test_only_the_words_of_the_flow_move_but_the_others_still_act(self):
+    self.place(self.memory, cat=(0.3, 0.5), dog=(0.6, 0.5))
+    self.memory.observe(["cat"])
+    self.assertNotEqual(self.memory.position(self.cat, "shape"), (0.3, 0.5))
+    self.assertEqual(self.memory.position(self.dog, "shape"), (0.6, 0.5))
+
+  def test_a_word_seen_in_more_flows_moves_less(self):
+    fresh = Memory(CONFIG)
+    fresh.add("cat")
+    fresh.add("dog")
+    self.place(fresh, cat=(0.3, 0.5), dog=(0.6, 0.5))
+    fresh.observe(["cat"])
+    old = Memory(CONFIG)
+    old.add("cat")
+    old.add("dog")
+    self.place(old, cat=(0.3, 0.5), dog=(0.6, 0.5))
+    old.counts[token_hash("cat")] = 3
+    old.observe(["cat"])
+    moved_fresh = abs(fresh.position(token_hash("cat"), "shape")[0] - 0.3)
+    moved_old = abs(old.position(token_hash("cat"), "shape")[0] - 0.3)
+    self.assertAlmostEqual(moved_fresh / moved_old, 4.0)
+
+  def test_the_moves_of_a_flow_do_not_depend_on_the_order_of_its_words(self):
+    other = Memory(CONFIG)
+    other.add("cat")
+    other.add("cats")
+    other.add("dog")
+    for memory in (self.memory, other):
+      self.place(memory, cat=(0.3, 0.5), cats=(0.5, 0.6), dog=(0.6, 0.4))
+    self.memory.observe(["cat", "cats", "dog"])
+    other.observe(["dog", "cats", "cat"])
+    self.assertEqual(self.memory.positions["shape"], other.positions["shape"])
+
+  def test_the_positions_stay_in_the_plane(self):
+    self.place(self.memory, cat=(0.02, 0.5), dog=(0.05, 0.5))
+    self.memory.observe(["cat", "dog"])
+    for position in self.memory.positions["shape"].values():
+      self.assertTrue(0.0 <= position[0] <= 1.0 and 0.0 <= position[1] <= 1.0)
+
+  def test_the_usage_map_does_not_move(self):
+    before = dict(self.memory.positions["usage"])
+    self.place(self.memory, cat=(0.3, 0.5), cats=(0.7, 0.5))
+    self.memory.observe(["cat", "cats"])
+    self.assertEqual(self.memory.positions["usage"], before)
+
+  def test_a_word_without_any_weight_does_not_move(self):
+    memory = Memory(config(base=0))
+    memory.add("cat")
+    memory.add("dog")
+    self.place(memory, cat=(0.3, 0.5), dog=(0.6, 0.5))
+    memory.observe(["cat"])
+    self.assertEqual(memory.position(token_hash("cat"), "shape"), (0.3, 0.5))
+
 class PositionTest(unittest.TestCase):
   def test_an_unknown_hash_has_no_position(self):
     self.assertIsNone(Memory(CONFIG).position("unknown", "usage"))
@@ -196,7 +291,7 @@ class ConfigTest(unittest.TestCase):
     self.assertIn("config.memory.floor", self.rejected({"memory": {}}))
 
   def with_changes(self, **changes):
-    return {"memory": dict(CONFIG["memory"], **changes)}
+    return config(**changes)
 
   def test_the_floor_must_be_a_number_greater_than_zero_and_at_most_one(self):
     for floor in (0, -0.1, 1.1, "0.3", None, True):
@@ -238,6 +333,25 @@ class ConfigTest(unittest.TestCase):
       self.assertIn("config.memory.decay", self.rejected(self.with_changes(decay=decay)), repr(decay))
     Memory(self.with_changes(decay=0))
     Memory(self.with_changes(decay=1))
+
+  def test_the_spring_settings_are_required_and_must_be_numbers(self):
+    for key in ("range", "rest", "far", "base", "rate"):
+      config_without = self.with_changes()
+      del config_without["memory"][key]
+      self.assertIn(f"config.memory.{key}", self.rejected(config_without), key)
+      for value in ("0.5", None, True):
+        self.assertIn(f"config.memory.{key}", self.rejected(self.with_changes(**{key: value})), repr((key, value)))
+
+  def test_the_range_and_the_rate_must_be_greater_than_zero(self):
+    for key in ("range", "rate"):
+      for value in (0, -1):
+        self.assertIn(f"config.memory.{key}", self.rejected(self.with_changes(**{key: value})), repr((key, value)))
+
+  def test_the_rest_and_the_base_must_be_at_least_zero_and_the_far_distance_at_least_the_rest(self):
+    for key in ("rest", "base"):
+      self.assertIn(f"config.memory.{key}", self.rejected(self.with_changes(**{key: -0.1})), key)
+    self.assertIn("config.memory.far", self.rejected(self.with_changes(rest=0.3, far=0.2)))
+    Memory(self.with_changes(rest=0.2, far=0.2, base=0))
 
   def test_the_orbit_is_required(self):
     config = self.with_changes()

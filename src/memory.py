@@ -2,6 +2,7 @@ import collections
 import math
 
 from lexicon import Lexicon
+from spring import spring_force
 from transcription import token_angle, token_position
 from validation import validate_memory
 
@@ -16,6 +17,11 @@ class Memory:
     self.orbit = section["orbit"]
     self.window = section["window"]
     self.decay = section["decay"]
+    self.reach = section["range"]
+    self.rest = section["rest"]
+    self.far = section["far"]
+    self.base = section["base"]
+    self.rate = section["rate"]
     self.recent = collections.deque(maxlen=section["recent"])
     self.counts = {}
     self.strengths = {}
@@ -49,8 +55,34 @@ class Memory:
       self.counts[hash_] = self.count(hash_) + 1
     self.link(hashes)
     expression = self.express(hashes)
+    self.relax_shape(hashes)
     self.recent.append(list(dict.fromkeys(hashes)))
     return hashes, expression
+
+  def relax_shape(self, hashes):
+    positions = self.positions["shape"]
+    moved = {}
+    for hash_ in dict.fromkeys(hashes):
+      px, py = positions[hash_]
+      similar = self.lexicon.similar(hash_)
+      fx = fy = weight = 0.0
+      for other, (ox, oy) in positions.items():
+        dx, dy = ox - px, oy - py
+        distance = math.hypot(dx, dy)
+        if other == hash_ or distance == 0.0 or distance >= self.reach:
+          continue
+        score = similar.get(other, 0.0)
+        affinity = score if score >= self.threshold else 0.0
+        level = max(affinity, self.base)
+        rest = self.far - (self.far - self.rest) * affinity
+        pull = level * spring_force(distance, rest, self.reach) / distance
+        fx += pull * dx
+        fy += pull * dy
+        weight += level * (1.0 - distance / self.reach)
+      if weight > 0.0:
+        step = self.rate / self.counts[hash_] / weight
+        moved[hash_] = (max(0.0, min(1.0, px + step * fx)), max(0.0, min(1.0, py + step * fy)))
+    positions.update(moved)
 
   def express(self, hashes):
     energies = {}
