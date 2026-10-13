@@ -14,10 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "gui"))
 from server import PAGE_PATH, WORD_ENERGY, load_unit, make_server, step_clock
 
 class LoadUnitTest(unittest.TestCase):
-  def test_the_unit_of_the_gui_has_the_planes_a_and_c_and_a_cursor_from_a_to_c(self):
+  def test_the_unit_of_the_gui_has_the_planes_a_and_c_with_a_cursor_to_c_and_a_drain_on_each_plane(self):
     unit = load_unit()
     self.assertEqual(list(unit.planes), ["A", "C"])
-    self.assertEqual([(cursor.source.uid, cursor.target.uid) for cursor in unit.cursors], [("A", "C")])
+    self.assertEqual([(cursor.source.uid, cursor.target.uid if cursor.target is not None else None) for cursor in unit.cursors], [("A", "C"), ("A", None), ("C", None)])
 
   def test_the_unit_is_built_from_the_given_config_file(self):
     config = {"scheduler": {"tick": 1.0, "budget": 0, "moment": 10}, "random": {"seed": 1}, "memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0, "coexpression": 1.0, "kappa": 1.0, "amplify": 2.0}, "planes": [{"uid": "X", "peak": 1.0, "relax": None, "transfers": []}, {"uid": "Y", "peak": 2.0, "relax": None, "transfers": []}]}

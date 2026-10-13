@@ -8,9 +8,17 @@
       "peak": 0.25,
       "relax": "usage",
       "transfers": [
-        {"target": "C", "energy": 0.01, "step": 0.01, "cooldown": 25, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum": 0}
+        {"target": "C", "energy": 0.01, "step": 0.01, "cooldown": 25, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum": 0},
+        {"target": null, "energy": 0.02, "step": 0.02, "cooldown": 25, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum": 0}
       ]
     },
-    {"uid": "C", "peak": 0.25, "relax": "shape", "transfers": []}
+    {
+      "uid": "C",
+      "peak": 0.25,
+      "relax": "shape",
+      "transfers": [
+        {"target": null, "energy": 0.01, "step": 0.005, "cooldown": 100, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 1000, "minimum": 0.01}
+      ]
+    }
   ]
 }
