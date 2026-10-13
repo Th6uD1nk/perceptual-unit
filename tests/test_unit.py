@@ -3,6 +3,7 @@ import json
 import unittest
 
 import support
+from generator import Generator
 from plane import Plane
 from transcription import token_hash, token_position
 from unit import Unit
@@ -10,8 +11,8 @@ from unit import Unit
 def entry(uid, peak=1.0):
   return {"uid": uid, "peak": peak}
 
-def make_config(planes, tick=4.0):
-  return {"scheduler": {"tick": tick, "budget": 0}, "planes": planes}
+def make_config(planes, tick=4.0, seed=1):
+  return {"scheduler": {"tick": tick, "budget": 0}, "random": {"seed": seed}, "planes": planes}
 
 CONFIG = make_config([entry("A", 4.0), entry("C", 2.0), entry("D", 1.0)])
 
@@ -57,6 +58,18 @@ class SchedulerTest(unittest.TestCase):
     second = Unit(CONFIG)
     first.update(8.0)
     self.assertEqual(second.ticks, 0)
+
+class GeneratorTest(unittest.TestCase):
+  def test_the_generator_of_the_unit_is_seeded_by_the_config(self):
+    unit = Unit(make_config([entry("A")], seed=7))
+    self.assertEqual(unit.generator.random(), Generator(7).random())
+
+  def test_two_units_do_not_share_their_generator(self):
+    first = Unit(CONFIG)
+    second = Unit(CONFIG)
+    expected = Generator(1).random()
+    first.generator.random()
+    self.assertEqual(second.generator.random(), expected)
 
 class FeedTest(unittest.TestCase):
   def test_a_token_becomes_a_perception_of_the_first_plane_at_its_transcription(self):
@@ -142,6 +155,25 @@ class RejectionTest(unittest.TestCase):
 
   def test_a_config_without_a_scheduler_is_refused(self):
     self.assertIn("config.scheduler", self.rejected({"planes": [entry("A")]}))
+
+  def test_the_random_section_is_required(self):
+    config = make_config([entry("A")])
+    del config["random"]
+    self.assertIn("config.random", self.rejected(config))
+
+  def test_the_random_section_must_be_an_object(self):
+    config = make_config([entry("A")])
+    config["random"] = 7
+    self.assertIn("config.random", self.rejected(config))
+
+  def test_the_seed_is_required(self):
+    config = make_config([entry("A")])
+    config["random"] = {}
+    self.assertIn("config.random.seed", self.rejected(config))
+
+  def test_the_seed_must_be_an_integer_of_at_least_zero(self):
+    for seed in (-1, 1.5, "1", None, True):
+      self.assertIn("config.random.seed", self.rejected(make_config([entry("A")], seed=seed)), repr(seed))
 
   def test_a_plane_must_be_an_object(self):
     self.assertIn("config.planes[1]", self.rejected({"planes": [entry("A"), "C"]}))

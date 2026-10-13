@@ -20,7 +20,7 @@ class LoadUnitTest(unittest.TestCase):
     self.assertEqual(unit.planes["A"].peak, 0.25)
 
   def test_the_unit_is_built_from_the_given_config_file(self):
-    config = {"scheduler": {"tick": 1.0, "budget": 0}, "planes": [{"uid": "X", "peak": 1.0}, {"uid": "Y", "peak": 2.0}]}
+    config = {"scheduler": {"tick": 1.0, "budget": 0}, "random": {"seed": 1}, "planes": [{"uid": "X", "peak": 1.0}, {"uid": "Y", "peak": 2.0}]}
     with tempfile.TemporaryDirectory() as folder:
       path = Path(folder) / "config.json"
       path.write_text(json.dumps(config))

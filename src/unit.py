@@ -1,5 +1,6 @@
 import copy
 
+from generator import Generator
 from plane import Plane
 from scheduler import Scheduler
 from transcription import token_hash, token_position
@@ -11,6 +12,7 @@ class Unit:
     self.config = copy.deepcopy(config)
     self.planes = {entry["uid"]: Plane(entry) for entry in self.config["planes"]}
     self.scheduler = Scheduler(self.config)
+    self.generator = Generator(self.config["random"]["seed"])
 
   @property
   def ticks(self):

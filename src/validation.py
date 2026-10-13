@@ -32,6 +32,7 @@ def validate_config(config):
   for index, entry in enumerate(planes):
     validate_plane(entry, f"config.planes[{index}]", known)
   validate_scheduler(config)
+  validate_random(config)
 
 def validate_scheduler(config):
   if not isinstance(config, dict):
@@ -51,6 +52,18 @@ def validate_scheduler(config):
   budget = section["budget"]
   if isinstance(budget, bool) or not isinstance(budget, int) or budget < 0:
     fail("config.scheduler.budget", "must be an integer of at least 0")
+
+def validate_random(config):
+  if "random" not in config:
+    fail("config.random", "missing")
+  section = config["random"]
+  if not isinstance(section, dict):
+    fail("config.random", "must be an object")
+  if "seed" not in section:
+    fail("config.random.seed", "missing")
+  seed = section["seed"]
+  if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+    fail("config.random.seed", "must be an integer of at least 0")
 
 def validate_cursor(config):
   if not isinstance(config, dict):
