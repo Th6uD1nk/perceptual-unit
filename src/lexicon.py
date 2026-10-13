@@ -4,8 +4,6 @@ from transcription import token_hash
 
 class Lexicon:
   def __init__(self, floor):
-    if isinstance(floor, bool) or not isinstance(floor, (int, float)) or not 0 < floor <= 1:
-      raise ValueError("floor: must be a number greater than 0 and at most 1")
     self.floor = floor
     self.words = {}
     self.grams = {}

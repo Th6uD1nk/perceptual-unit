@@ -75,14 +75,5 @@ class SimilarityTest(unittest.TestCase):
     lexicon.similar(token_hash("cat"))[token_hash("cats")] = 9.0
     self.assertAlmostEqual(lexicon.similar(token_hash("cat"))[token_hash("cats")], 2 * 3 / (4 + 5))
 
-class FloorTest(unittest.TestCase):
-  def test_the_floor_must_be_a_number_greater_than_zero_and_at_most_one(self):
-    for floor in (0, -0.1, 1.1, "0.3", None, True):
-      with self.assertRaises(ValueError, msg=repr(floor)):
-        Lexicon(floor)
-
-  def test_a_floor_of_one_is_accepted(self):
-    Lexicon(1)
-
 if __name__ == "__main__":
   unittest.main()

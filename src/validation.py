@@ -91,6 +91,20 @@ def validate_random(config):
   if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
     fail("config.random.seed", "must be an integer of at least 0")
 
+def validate_memory(config):
+  if not isinstance(config, dict):
+    fail("config", "must be an object")
+  if "memory" not in config:
+    fail("config.memory", "missing")
+  section = config["memory"]
+  if not isinstance(section, dict):
+    fail("config.memory", "must be an object")
+  if "floor" not in section:
+    fail("config.memory.floor", "missing")
+  floor = section["floor"]
+  if isinstance(floor, bool) or not isinstance(floor, (int, float)) or not 0 < floor <= 1:
+    fail("config.memory.floor", "must be a number greater than 0 and at most 1")
+
 def validate_cursor(config, path="config"):
   if not isinstance(config, dict):
     fail(path, "must be an object")
