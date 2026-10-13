@@ -73,6 +73,17 @@ class ServerTest(unittest.TestCase):
       self.assertIn("error", json.loads(caught.exception.read()))
     self.assertEqual(self.server.unit.planes["A"].perceptions, {})
 
+  def test_a_request_waits_while_the_lock_of_the_unit_is_held(self):
+    statuses = []
+    thread = threading.Thread(target=lambda: statuses.append(urllib.request.urlopen(self.base + "/api/state").status))
+    self.server.lock.acquire()
+    thread.start()
+    thread.join(0.2)
+    self.assertEqual(statuses, [])
+    self.server.lock.release()
+    thread.join(2)
+    self.assertEqual(statuses, [200])
+
   def test_an_unknown_route_is_not_found(self):
     with self.assertRaises(urllib.error.HTTPError) as caught:
       urllib.request.urlopen(self.base + "/unknown")

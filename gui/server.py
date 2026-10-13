@@ -1,5 +1,6 @@
 import json
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -22,7 +23,9 @@ class Handler(BaseHTTPRequestHandler):
     if self.path == "/":
       self.send_body(200, "text/html; charset=utf-8", PAGE_PATH.read_bytes())
     elif self.path == "/api/state":
-      self.send_json(200, self.server.unit.state())
+      with self.server.lock:
+        state = self.server.unit.state()
+      self.send_json(200, state)
     else:
       self.send_error(404)
 
@@ -34,11 +37,13 @@ class Handler(BaseHTTPRequestHandler):
       payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
       if not isinstance(payload, dict):
         raise ValueError("body: must be an object")
-      self.server.unit.feed(payload.get("token"), TOKEN_ENERGY)
+      with self.server.lock:
+        self.server.unit.feed(payload.get("token"), TOKEN_ENERGY)
+        state = self.server.unit.state()
     except ValueError as error:
       self.send_json(400, {"error": str(error)})
       return
-    self.send_json(200, self.server.unit.state())
+    self.send_json(200, state)
 
   def send_json(self, status, payload):
     self.send_body(status, "application/json", json.dumps(payload).encode("utf-8"))
@@ -56,6 +61,7 @@ class Handler(BaseHTTPRequestHandler):
 def make_server(unit, port):
   server = ThreadingHTTPServer((HOST, port), Handler)
   server.unit = unit
+  server.lock = threading.Lock()
   return server
 
 def main(arguments):
