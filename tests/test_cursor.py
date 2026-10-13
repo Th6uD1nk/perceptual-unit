@@ -16,15 +16,15 @@ def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_p
   return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact, "cycle": cycle}
 
 def make_cursor(x, y, dx, dy, source=None, target=None, generator=None, **settings):
-  source = source if source is not None else Plane({"uid": "A", "peak": 10.0}, support.now)
-  target = target if target is not None else Plane({"uid": "C", "peak": 10.0}, support.now)
+  source = source if source is not None else Plane({"uid": "A", "peak": 10.0}, support.moments())
+  target = target if target is not None else Plane({"uid": "C", "peak": 10.0}, support.moments())
   cursor = Cursor(make_config(**settings), source, target, generator if generator is not None else Generator(1))
   cursor.place(x, y, dx, dy)
   return cursor
 
 class PlacementTest(unittest.TestCase):
   def test_a_new_cursor_is_at_the_center_and_heads_right(self):
-    cursor = Cursor(make_config(), Plane({"uid": "A", "peak": 1.0}, support.now), Plane({"uid": "C", "peak": 1.0}, support.now), Generator(1))
+    cursor = Cursor(make_config(), Plane({"uid": "A", "peak": 1.0}, support.moments()), Plane({"uid": "C", "peak": 1.0}, support.moments()), Generator(1))
     self.assertEqual((cursor.x, cursor.y, cursor.dx, cursor.dy), (0.5, 0.5, 1.0, 0.0))
 
   def test_the_direction_is_normalized(self):
@@ -66,7 +66,7 @@ class PlacementTest(unittest.TestCase):
 class ConfigTest(unittest.TestCase):
   def rejected(self, config):
     with self.assertRaises(ValueError) as caught:
-      Cursor(config, Plane({"uid": "A", "peak": 1.0}, support.now), Plane({"uid": "C", "peak": 1.0}, support.now), Generator(1))
+      Cursor(config, Plane({"uid": "A", "peak": 1.0}, support.moments()), Plane({"uid": "C", "peak": 1.0}, support.moments()), Generator(1))
     return str(caught.exception)
 
   def test_a_config_must_be_an_object(self):
@@ -115,7 +115,7 @@ class ConfigTest(unittest.TestCase):
       self.assertIn("config.cycle", self.rejected(config), repr(value))
 
   def test_zero_is_accepted_for_the_settings_that_allow_it(self):
-    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0), Plane({"uid": "A", "peak": 1.0}, support.now), Plane({"uid": "C", "peak": 1.0}, support.now), Generator(1))
+    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0), Plane({"uid": "A", "peak": 1.0}, support.moments()), Plane({"uid": "C", "peak": 1.0}, support.moments()), Generator(1))
 
 class AdvanceTest(unittest.TestCase):
   def test_the_cursor_moves_along_its_direction_by_the_distance(self):
@@ -217,7 +217,7 @@ class CollisionTest(unittest.TestCase):
     self.assertFalse(cursor.touches(perception(0.5, 0.5, 0.125)))
 
   def test_a_visit_of_a_plane_records_only_the_perceptions_touched_in_visit_order(self):
-    plane = Plane({"uid": "A", "peak": 10.0}, support.now)
+    plane = Plane({"uid": "A", "peak": 10.0}, support.moments())
     plane.receive("far", 0.5, 0.9, 0.0625)
     plane.receive("first", 0.375, 0.5, 0.0625)
     plane.receive("brush", 0.5, 0.75, 0.25)
@@ -228,8 +228,8 @@ class CollisionTest(unittest.TestCase):
 
 class FinishTest(unittest.TestCase):
   def setUp(self):
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.now)
-    self.target = Plane({"uid": "C", "peak": 10.0}, support.now)
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
+    self.target = Plane({"uid": "C", "peak": 10.0}, support.moments())
     self.cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, self.target)
     self.cursor.advance(0.5)
 
@@ -256,7 +256,7 @@ class FinishTest(unittest.TestCase):
     self.assertEqual(self.source.perceptions, {})
 
   def test_the_peak_of_the_target_is_respected_and_the_surplus_stays_in_the_source(self):
-    target = Plane({"uid": "C", "peak": 0.03125}, support.now)
+    target = Plane({"uid": "C", "peak": 0.03125}, support.moments())
     cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, target)
     cursor.advance(0.5)
     self.source.receive("first", 0.5, 0.5, 0.125)
@@ -301,8 +301,8 @@ class FinishTest(unittest.TestCase):
 class RunTest(unittest.TestCase):
   def setUp(self):
     self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0, "moment": 1000}})
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.now)
-    self.target = Plane({"uid": "C", "peak": 10.0}, support.now)
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
+    self.target = Plane({"uid": "C", "peak": 10.0}, support.moments())
     self.cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, self.target, step=0.125)
     self.cursor.start(self.scheduler)
 
@@ -336,8 +336,8 @@ class RunTest(unittest.TestCase):
 class CooldownTest(unittest.TestCase):
   def setUp(self):
     self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0, "moment": 1000}})
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.now)
-    self.target = Plane({"uid": "C", "peak": 10.0}, support.now)
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
+    self.target = Plane({"uid": "C", "peak": 10.0}, support.moments())
     self.source.receive("first", 0.5, 0.5, 0.125)
     self.perception = self.source.perceptions[("first", 0.5, 0.5, 0)]
     self.cursor = self.make(2)
@@ -378,7 +378,7 @@ class CooldownTest(unittest.TestCase):
     self.assertEqual(self.sweep(cursor), 0.0625)
 
   def test_a_perception_whose_target_refused_the_energy_is_still_marked_read(self):
-    full = Plane({"uid": "C", "peak": 0.0625}, support.now)
+    full = Plane({"uid": "C", "peak": 0.0625}, support.moments())
     full.receive("first", 0.5, 0.5, 0.0625)
     cursor = self.make(2, full)
     self.assertEqual(self.sweep(cursor), 0.0)
@@ -392,7 +392,7 @@ class CooldownTest(unittest.TestCase):
 
 class AttractionTest(unittest.TestCase):
   def setUp(self):
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.now)
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
 
   def turned(self, perceptions, attraction=1.0, distance_power=2.0, direction=(1.0, 0.0), elapsed=1):
     cursor = make_cursor(0.5, 0.5, *direction, self.source, attraction=attraction, distance_power=distance_power, step=STILL)
@@ -409,13 +409,13 @@ class AttractionTest(unittest.TestCase):
 
   def test_a_nearer_perception_turns_the_direction_more(self):
     near = self.turned([(0.5, 0.625, 0.03125)])
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.now)
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
     far = self.turned([(0.5, 0.875, 0.03125)])
     self.assertGreater(near.dy, far.dy)
 
   def test_a_stronger_perception_turns_the_direction_more(self):
     weak = self.turned([(0.5, 0.75, 0.03125)])
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.now)
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
     strong = self.turned([(0.5, 0.75, 0.125)])
     self.assertGreater(strong.dy, weak.dy)
 
@@ -425,7 +425,7 @@ class AttractionTest(unittest.TestCase):
 
   def test_a_distance_power_of_zero_ignores_the_distance(self):
     near = self.turned([(0.5, 0.625, 0.03125)], distance_power=0.0)
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.now)
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
     far = self.turned([(0.5, 0.875, 0.03125)], distance_power=0.0)
     self.assertAlmostEqual(near.dy, far.dy)
 
@@ -464,7 +464,7 @@ class AttractionTest(unittest.TestCase):
 
   def test_the_effect_of_the_attraction_is_proportional_to_the_elapsed_ticks(self):
     once = self.turned([(0.5, 0.75, 0.0625)], elapsed=1)
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.now)
+    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
     twice = self.turned([(0.5, 0.75, 0.0625)], elapsed=2)
     self.assertAlmostEqual(twice.dy / twice.dx, 2 * once.dy / once.dx)
 
@@ -477,7 +477,7 @@ class AttractionTest(unittest.TestCase):
 
 class DeflectionTest(unittest.TestCase):
   def setUp(self):
-    self.source = Plane({"uid": "A", "peak": 0.25}, support.now)
+    self.source = Plane({"uid": "A", "peak": 0.25}, support.moments())
 
   def read(self, energy=0.125, impact=1.0, others=()):
     cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, impact=impact, step=STILL)
@@ -500,7 +500,7 @@ class DeflectionTest(unittest.TestCase):
 
   def test_a_perception_with_more_energy_deflects_more(self):
     weak = self.read(energy=0.0625)
-    self.source = Plane({"uid": "A", "peak": 0.25}, support.now)
+    self.source = Plane({"uid": "A", "peak": 0.25}, support.moments())
     strong = self.read(energy=0.125)
     self.assertGreater(strong.dy, weak.dy)
 
@@ -553,7 +553,7 @@ class BudgetRunTest(unittest.TestCase):
     self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 2, "moment": 1000}})
 
   def plane(self, uid, count):
-    plane = Plane({"uid": uid, "peak": 10.0}, support.now)
+    plane = Plane({"uid": uid, "peak": 10.0}, support.moments())
     for index in range(count):
       plane.receive(f"far{index}", 0.1 * index, 0.9, 0.0625)
     return plane

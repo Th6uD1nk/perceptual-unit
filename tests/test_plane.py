@@ -1,14 +1,16 @@
 import unittest
+from types import SimpleNamespace
 
 import support
+from moments import Moments
 from perception import Perception
 from plane import Plane
 
 POINT = ("house", 0.25, 0.75)
 KEY = POINT + (0,)
 
-def make_plane(uid="A", peak=10.0, current_moment=support.now):
-  return Plane({"uid": uid, "peak": peak}, current_moment)
+def make_plane(uid="A", peak=10.0, moments=None):
+  return Plane({"uid": uid, "peak": peak}, moments if moments is not None else support.moments())
 
 class PlaneTest(unittest.TestCase):
   def test_a_new_plane_holds_no_perception(self):
@@ -94,25 +96,26 @@ class PeakTest(unittest.TestCase):
 
 class MomentTest(unittest.TestCase):
   def setUp(self):
-    self.moment = [0]
-    self.plane = make_plane(current_moment=lambda: self.moment[0])
+    self.clock = SimpleNamespace(moment=0)
+    self.moments = Moments(self.clock)
+    self.plane = make_plane(moments=self.moments)
 
   def test_the_same_triplet_received_in_two_moments_gives_two_perceptions_with_their_own_energy(self):
     self.plane.receive(*POINT, 1.0)
-    self.moment[0] = 1
+    self.clock.moment = 1
     self.plane.receive(*POINT, 2.0)
     self.assertEqual(self.plane.perceptions[POINT + (0,)].energy, 1.0)
     self.assertEqual(self.plane.perceptions[POINT + (1,)].energy, 2.0)
 
   def test_a_perception_keeps_the_moment_in_which_it_was_born(self):
     self.plane.receive(*POINT, 1.0)
-    self.moment[0] = 5
+    self.clock.moment = 5
     self.assertEqual(self.plane.perceptions[POINT + (0,)].moment, 0)
 
   def test_a_transfer_lands_in_the_moment_in_progress_of_the_target_and_the_source_keeps_its_moment(self):
-    target = make_plane("C", current_moment=lambda: self.moment[0])
+    target = make_plane("C", moments=self.moments)
     self.plane.receive(*POINT, 1.0)
-    self.moment[0] = 1
+    self.clock.moment = 1
     self.plane.transfer(self.plane.perceptions[POINT + (0,)], target, 0.25)
     self.assertEqual(self.plane.perceptions[POINT + (0,)].energy, 0.75)
     self.assertEqual(list(target.perceptions), [POINT + (1,)])

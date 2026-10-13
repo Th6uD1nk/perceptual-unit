@@ -3,5 +3,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-def now():
-  return 0
+from types import SimpleNamespace
+
+from moments import Moments
+
+def moments(moment=0):
+  return Moments(SimpleNamespace(moment=moment))
