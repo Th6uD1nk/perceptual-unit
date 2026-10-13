@@ -150,7 +150,7 @@ def validate_memory(config):
 def validate_cursor(config, path="config"):
   if not isinstance(config, dict):
     fail(path, "must be an object")
-  for key, strict in (("energy", True), ("step", True), ("attraction", False), ("distance_power", False), ("impact", False)):
+  for key, strict in (("energy", True), ("step", True), ("attraction", False), ("distance_power", False), ("impact", False), ("minimum", False)):
     if key not in config:
       fail(f"{path}.{key}", "missing")
     value = config[key]

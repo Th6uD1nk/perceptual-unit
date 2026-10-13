@@ -15,7 +15,7 @@ def entry(uid, peak=1.0, transfers=None, relax=None):
   return {"uid": uid, "peak": peak, "relax": relax, "transfers": transfers if transfers is not None else []}
 
 def transfer(target, **changes):
-  return dict({"target": target, "energy": 0.0625, "step": 0.25, "cooldown": 0, "attraction": 0.0, "distance_power": 2.0, "impact": 0.0, "cycle": 10}, **changes)
+  return dict({"target": target, "energy": 0.0625, "step": 0.25, "cooldown": 0, "attraction": 0.0, "distance_power": 2.0, "impact": 0.0, "cycle": 10, "minimum": 0.0}, **changes)
 
 def make_config(planes, tick=4.0, seed=1, moment=1000):
   return {"scheduler": {"tick": tick, "budget": 0, "moment": moment}, "random": {"seed": seed}, "memory": MEMORY, "planes": planes}
