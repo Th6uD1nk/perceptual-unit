@@ -44,6 +44,30 @@ class Unit:
     self.moments.record(hashes)
     return accepted
 
+  def between(self, left, right, uid=None):
+    for neighbor in (left, right):
+      if neighbor is not None and (not isinstance(neighbor, str) or not neighbor):
+        raise ValueError("neighbor: must be None or a non-empty string")
+    if uid is not None and uid not in self.planes:
+      raise ValueError(f"uid: unknown plane {uid!r}")
+    found = self.moments.between(
+      None if left is None else token_hash(left),
+      None if right is None else token_hash(right)
+    )
+    energies = {}
+    if uid is not None and found:
+      for perception in self.planes[uid].perceptions.values():
+        energies[perception.hash] = energies.get(perception.hash, 0.0) + perception.energy
+    entries = [
+      {"hash": hash_, "count": count, "energy": energies.get(hash_, 0.0) if uid is not None else None}
+      for hash_, count in found.items()
+    ]
+    if uid is None:
+      entries.sort(key=lambda entry: (-entry["count"], entry["hash"]))
+    else:
+      entries.sort(key=lambda entry: (-entry["energy"], -entry["count"], entry["hash"]))
+    return entries
+
   def state(self):
     return {
       "ticks": self.ticks,

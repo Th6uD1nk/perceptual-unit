@@ -219,6 +219,68 @@ class FlowTest(unittest.TestCase):
     self.assertEqual(unit.planes["A"].perceptions, {})
     self.assertEqual(unit.moments.events(0), [])
 
+class BetweenTest(unittest.TestCase):
+  def test_a_flow_fed_twice_gives_a_count_of_two_for_the_word_between_its_neighbors(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    self.assertEqual(unit.between("a", "c"), [{"hash": token_hash("b"), "count": 2, "energy": None}])
+
+  def test_the_words_are_sorted_by_count_and_then_by_hash(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    unit.feed_flow(["a", "x", "c"], 1.0)
+    unit.feed_flow(["a", "y", "c"], 1.0)
+    answer = unit.between("a", "c")
+    self.assertEqual(answer[0]["hash"], token_hash("b"))
+    self.assertEqual([entry["hash"] for entry in answer[1:]], sorted([token_hash("x"), token_hash("y")]))
+
+  def test_the_counts_of_two_moments_add_up(self):
+    unit = Unit(make_config([entry("A", peak=4.0)], tick=1.0, moment=2))
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    unit.update(2.0)
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    self.assertEqual(unit.between("a", "c")[0]["count"], 2)
+
+  def test_an_edge_of_a_flow_is_asked_with_none(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b"], 1.0)
+    self.assertEqual([entry["hash"] for entry in unit.between(None, "b")], [token_hash("a")])
+    self.assertEqual([entry["hash"] for entry in unit.between("a", None)], [token_hash("b")])
+
+  def test_unknown_neighbors_give_an_empty_list(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    self.assertEqual(unit.between("a", "z"), [])
+
+  def test_with_a_plane_the_energy_of_each_word_orders_the_answer_before_the_count(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "cat", "c"], 1.0)
+    unit.feed_flow(["a", "dog", "c"], 3.0)
+    answer = unit.between("a", "c", "A")
+    self.assertEqual([entry["hash"] for entry in answer], [token_hash("dog"), token_hash("cat")])
+    self.assertEqual([entry["energy"] for entry in answer], [3.0, 1.0])
+
+  def test_a_word_without_perception_in_the_plane_has_no_energy(self):
+    unit = Unit(CONFIG)
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    self.assertEqual(unit.between("a", "c", "C")[0]["energy"], 0.0)
+
+  def test_an_unknown_plane_or_an_invalid_neighbor_is_refused(self):
+    unit = Unit(CONFIG)
+    for arguments in (("a", "b", "Z"), (3, "b"), ("", "b"), ("a", ["b"])):
+      with self.assertRaises(ValueError, msg=repr(arguments)):
+        unit.between(*arguments)
+
+  def test_a_released_moment_no_longer_counts_in_the_answer(self):
+    unit = Unit(make_config([entry("A", peak=4.0)], tick=1.0, moment=2))
+    unit.feed_flow(["a", "b", "c"], 1.0)
+    unit.update(2.0)
+    for perception in list(unit.planes["A"].perceptions.values()):
+      unit.planes["A"].take(perception, 10.0)
+    self.assertEqual(unit.between("a", "c"), [])
+
 class StateTest(unittest.TestCase):
   def test_the_state_gives_the_ticks_and_the_planes_in_the_order_of_the_config(self):
     unit = Unit(CONFIG)
