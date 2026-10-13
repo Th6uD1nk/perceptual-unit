@@ -15,4 +15,4 @@ class Perception:
     return (self.hash, self.x, self.y, self.moment)
 
   def state(self):
-    return {"hash": self.hash, "x": self.x, "y": self.y, "energy": self.energy, "read": self.read}
+    return {"hash": self.hash, "x": self.x, "y": self.y, "moment": self.moment, "energy": self.energy, "read": self.read}

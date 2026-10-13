@@ -42,6 +42,7 @@ class Unit:
   def state(self):
     return {
       "ticks": self.ticks,
+      "moment": self.current_moment(),
       "planes": [plane.state() for plane in self.planes.values()],
       "cursors": [cursor.state() for cursor in self.cursors]
     }

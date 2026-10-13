@@ -33,10 +33,10 @@ class PerceptionTest(unittest.TestCase):
       Perception("house", 0.1, 0.1, 0).age = 3
 
 class StateTest(unittest.TestCase):
-  def test_the_state_gives_the_hash_the_position_the_energy_and_the_read_flag(self):
-    perception = Perception("house", 0.25, 0.75, 0)
+  def test_the_state_gives_the_hash_the_position_the_moment_the_energy_and_the_read_flag(self):
+    perception = Perception("house", 0.25, 0.75, 3)
     perception.energy = 0.5
-    self.assertEqual(perception.state(), {"hash": "house", "x": 0.25, "y": 0.75, "energy": 0.5, "read": False})
+    self.assertEqual(perception.state(), {"hash": "house", "x": 0.25, "y": 0.75, "moment": 3, "energy": 0.5, "read": False})
 
   def test_the_state_follows_the_changes_of_the_perception(self):
     perception = Perception("house", 0.25, 0.75, 0)

@@ -206,6 +206,12 @@ class StateTest(unittest.TestCase):
     self.assertEqual(state["ticks"], 2)
     self.assertEqual([plane["uid"] for plane in state["planes"]], ["A", "C", "D"])
 
+  def test_the_state_gives_the_moment_in_progress(self):
+    unit = Unit(make_config([entry("A")], tick=1.0, moment=2))
+    self.assertEqual(unit.state()["moment"], 0)
+    unit.update(2.0)
+    self.assertEqual(unit.state()["moment"], 1)
+
   def test_the_state_holds_the_perceptions_of_each_plane(self):
     unit = Unit(CONFIG)
     unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
