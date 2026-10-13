@@ -45,8 +45,8 @@
         context.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
       }
 
-      function drawPerception(context, canvas, perception) {
-        const radius = Math.max(1, perception.energy * canvas.width);
+      function drawPerception(context, canvas, plane, perception) {
+        const radius = Math.max(1, perception.energy / plane.peak * canvas.width * 0.05);
         context.beginPath();
         context.arc(perception.x * canvas.width, perception.y * canvas.height, radius, 0, 2 * Math.PI);
         context.fillStyle = "hsla(" + (perception.moment * 67) % 360 + ", 70%, 60%, " + (perception.read ? 0.12 : 0.35) + ")";
@@ -77,7 +77,7 @@
         context.clearRect(0, 0, canvas.width, canvas.height);
         drawFrame(context, canvas);
         plane.perceptions.forEach(function (perception) {
-          drawPerception(context, canvas, perception);
+          drawPerception(context, canvas, plane, perception);
         });
         cursors.filter(function (cursor) {
           return cursor.source === plane.uid;
