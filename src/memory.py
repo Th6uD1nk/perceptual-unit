@@ -84,6 +84,33 @@ class Memory:
         moved[hash_] = (max(0.0, min(1.0, px + step * fx)), max(0.0, min(1.0, py + step * fy)))
     positions.update(moved)
 
+  def pull(self, perception, plane):
+    neighbors = [other for other in plane.of_moment(perception.moment) if other is not perception]
+    cost = max(1, len(neighbors))
+    similar = self.lexicon.similar(perception.hash)
+    fx = fy = weight = 0.0
+    for other in neighbors:
+      dx, dy = other.x - perception.x, other.y - perception.y
+      distance = math.hypot(dx, dy)
+      if distance == 0.0 or distance >= self.reach:
+        continue
+      score = similar.get(other.hash, 0.0)
+      affinity = score if score >= self.threshold else 0.0
+      level = max(affinity, self.base)
+      rest = self.far - (self.far - self.rest) * affinity
+      force = level * spring_force(distance, rest, self.reach) / distance
+      fx += force * dx
+      fy += force * dy
+      weight += level * (1.0 - distance / self.reach)
+    if weight <= 0.0:
+      return perception.x, perception.y, cost
+    step = self.rate / (perception.energy / plane.peak * weight)
+    dx, dy = step * fx, step * fy
+    length = math.hypot(dx, dy)
+    if length > self.reach:
+      dx, dy = dx * self.reach / length, dy * self.reach / length
+    return max(0.0, min(1.0, perception.x + dx)), max(0.0, min(1.0, perception.y + dy)), cost
+
   def express(self, hashes):
     energies = {}
     for age, flow in enumerate(reversed(self.recent), 1):

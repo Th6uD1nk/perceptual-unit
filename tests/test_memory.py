@@ -1,8 +1,11 @@
 import math
 import unittest
+from types import SimpleNamespace
 
 import support
 from memory import Memory
+from moments import Moments
+from plane import Plane
 from transcription import token_angle, token_hash, token_position
 
 BASE = {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "recent": 3, "decay": 0.3, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0}
@@ -265,6 +268,94 @@ class RelaxTest(unittest.TestCase):
     self.place(memory, cat=(0.3, 0.5), dog=(0.6, 0.5))
     memory.observe(["cat"])
     self.assertEqual(memory.position(token_hash("cat"), "shape"), (0.3, 0.5))
+
+class PullTest(unittest.TestCase):
+  def setUp(self):
+    self.memory = Memory(CONFIG)
+    for word in ("cat", "cats", "dog"):
+      self.memory.add(word)
+    self.clock = SimpleNamespace(moment=0)
+    self.plane = Plane({"uid": "A", "peak": 4.0}, Moments(self.clock))
+
+  def perception(self, word, x, y, energy=1.0, moment=0):
+    self.clock.moment = moment
+    self.plane.receive(token_hash(word), x, y, energy)
+    return self.plane.perceptions[(token_hash(word), x, y, moment)]
+
+  def test_a_similar_neighbor_attracts(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    self.perception("cats", 0.7, 0.5)
+    x, y, _ = self.memory.pull(cat, self.plane)
+    self.assertGreater(x, 0.3)
+    self.assertAlmostEqual(y, 0.5)
+
+  def test_a_dissimilar_neighbor_attracts_beyond_the_far_distance_and_repels_below_it(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    dog = self.perception("dog", 0.7, 0.5)
+    self.assertGreater(self.memory.pull(cat, self.plane)[0], 0.3)
+    self.plane.move(dog, 0.4, 0.5)
+    self.assertLess(self.memory.pull(cat, self.plane)[0], 0.3)
+
+  def test_a_neighbor_beyond_the_reach_has_no_effect_but_counts_in_the_cost(self):
+    cat = self.perception("cat", 0.1, 0.5)
+    self.perception("dog", 0.9, 0.5)
+    self.assertEqual(self.memory.pull(cat, self.plane), (0.1, 0.5, 1))
+
+  def test_a_neighbor_of_another_moment_neither_acts_nor_counts(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    self.perception("cats", 0.7, 0.5, moment=1)
+    self.assertEqual(self.memory.pull(cat, self.plane), (0.3, 0.5, 1))
+
+  def test_two_perceptions_of_the_same_word_are_neighbors_without_affinity(self):
+    first = self.perception("cat", 0.3, 0.5)
+    self.perception("cat", 0.7, 0.5)
+    self.assertGreater(self.memory.pull(first, self.plane)[0], 0.3)
+
+  def test_a_perception_with_twice_the_energy_moves_half_as_far(self):
+    moves = []
+    for energy in (1.0, 2.0):
+      plane = Plane({"uid": "B", "peak": 4.0}, Moments(self.clock))
+      plane.receive(token_hash("cat"), 0.3, 0.5, energy)
+      plane.receive(token_hash("dog"), 0.7, 0.5, 1.0)
+      cat = plane.perceptions[(token_hash("cat"), 0.3, 0.5, 0)]
+      moves.append(self.memory.pull(cat, plane)[0] - 0.3)
+    self.assertAlmostEqual(moves[0] / moves[1], 2.0)
+
+  def test_the_move_of_a_nearly_empty_perception_is_capped_at_the_reach(self):
+    cat = self.perception("cat", 0.3, 0.5, energy=0.001)
+    self.perception("dog", 0.7, 0.5)
+    x, y, _ = self.memory.pull(cat, self.plane)
+    self.assertAlmostEqual(math.hypot(x - 0.3, y - 0.5), 0.5)
+
+  def test_the_target_position_stays_in_the_plane(self):
+    cat = self.perception("cat", 0.02, 0.5)
+    self.perception("dog", 0.05, 0.5)
+    x, y, _ = self.memory.pull(cat, self.plane)
+    self.assertTrue(0.0 <= x <= 1.0 and 0.0 <= y <= 1.0)
+
+  def test_a_perception_without_any_weight_stays_where_it_is(self):
+    memory = Memory(config(base=0))
+    memory.add("cat")
+    memory.add("dog")
+    cat = self.perception("cat", 0.3, 0.5)
+    self.perception("dog", 0.7, 0.5)
+    self.assertEqual(memory.pull(cat, self.plane), (0.3, 0.5, 1))
+
+  def test_the_cost_is_the_number_of_neighbors_of_the_moment_and_one_for_a_perception_alone(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    self.assertEqual(self.memory.pull(cat, self.plane)[2], 1)
+    self.perception("dog", 0.5, 0.5)
+    self.perception("cats", 0.6, 0.5)
+    self.perception("dog", 0.9, 0.9)
+    self.assertEqual(self.memory.pull(cat, self.plane)[2], 3)
+
+  def test_the_plane_is_not_modified_by_a_pull(self):
+    cat = self.perception("cat", 0.3, 0.5)
+    self.perception("cats", 0.7, 0.5)
+    before = {key: (perception.x, perception.y, perception.energy) for key, perception in self.plane.perceptions.items()}
+    self.memory.pull(cat, self.plane)
+    after = {key: (perception.x, perception.y, perception.energy) for key, perception in self.plane.perceptions.items()}
+    self.assertEqual(before, after)
 
 class PositionTest(unittest.TestCase):
   def test_an_unknown_hash_has_no_position(self):
