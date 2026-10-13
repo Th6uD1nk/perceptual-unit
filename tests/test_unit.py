@@ -15,8 +15,8 @@ def entry(uid, peak=1.0, transfers=None):
 def transfer(target, **changes):
   return dict({"target": target, "energy": 0.0625, "step": 0.25, "cooldown": 0, "attraction": 0.0, "distance_power": 2.0, "impact": 0.0, "cycle": 10}, **changes)
 
-def make_config(planes, tick=4.0, seed=1):
-  return {"scheduler": {"tick": tick, "budget": 0, "moment": 1000}, "random": {"seed": seed}, "planes": planes}
+def make_config(planes, tick=4.0, seed=1, moment=1000):
+  return {"scheduler": {"tick": tick, "budget": 0, "moment": moment}, "random": {"seed": seed}, "planes": planes}
 
 CONFIG = make_config([entry("A", 4.0), entry("C", 2.0), entry("D", 1.0)])
 
@@ -145,9 +145,9 @@ class EndToEndTest(unittest.TestCase):
     unit = self.unit()
     self.advance(unit, 40)
     x, y = token_position("house")
-    arrived = unit.planes["C"].perceptions[(token_hash("house"), x, y)]
+    arrived = unit.planes["C"].perceptions[(token_hash("house"), x, y, 0)]
     self.assertGreater(arrived.energy, 0.0)
-    self.assertLess(unit.planes["A"].perceptions[(token_hash("house"), x, y)].energy, 0.2)
+    self.assertLess(unit.planes["A"].perceptions[(token_hash("house"), x, y, 0)].energy, 0.2)
 
   def test_the_energy_is_neither_created_nor_lost_by_the_transfers(self):
     unit = self.unit()
@@ -165,7 +165,7 @@ class FeedTest(unittest.TestCase):
     unit = Unit(CONFIG)
     unit.feed("house", 1.0)
     x, y = token_position("house")
-    perception = unit.planes["A"].perceptions[(token_hash("house"), x, y)]
+    perception = unit.planes["A"].perceptions[(token_hash("house"), x, y, 0)]
     self.assertEqual(perception.energy, 1.0)
 
   def test_the_other_planes_receive_nothing(self):
@@ -180,6 +180,13 @@ class FeedTest(unittest.TestCase):
     unit.feed("house", 1.5)
     self.assertEqual(len(unit.planes["A"].perceptions), 1)
     self.assertEqual(next(iter(unit.planes["A"].perceptions.values())).energy, 2.5)
+
+  def test_the_same_token_fed_in_two_moments_gives_two_perceptions(self):
+    unit = Unit(make_config([entry("A")], tick=1.0, moment=2))
+    unit.feed("house", 1.0)
+    unit.update(2.0)
+    unit.feed("house", 1.0)
+    self.assertEqual(sorted(perception.moment for perception in unit.planes["A"].perceptions.values()), [0, 1])
 
   def test_feeding_returns_the_energy_accepted_by_the_plane(self):
     self.assertEqual(Unit(CONFIG).feed("house", 6.0), 4.0)

@@ -4,10 +4,11 @@ import support
 from perception import Perception
 from plane import Plane
 
-KEY = ("house", 0.25, 0.75)
+POINT = ("house", 0.25, 0.75)
+KEY = POINT + (0,)
 
-def make_plane(uid="A", peak=10.0):
-  return Plane({"uid": uid, "peak": peak})
+def make_plane(uid="A", peak=10.0, current_moment=support.now):
+  return Plane({"uid": uid, "peak": peak}, current_moment)
 
 class PlaneTest(unittest.TestCase):
   def test_a_new_plane_holds_no_perception(self):
@@ -16,7 +17,7 @@ class PlaneTest(unittest.TestCase):
   def test_two_planes_do_not_share_their_perceptions(self):
     first = make_plane()
     second = make_plane("C")
-    first.receive(*KEY, 1.0)
+    first.receive(*POINT, 1.0)
     self.assertEqual(second.perceptions, {})
 
 class ReceiveTest(unittest.TestCase):
@@ -24,18 +25,18 @@ class ReceiveTest(unittest.TestCase):
     self.plane = make_plane()
 
   def test_a_reception_creates_a_perception_with_that_energy_under_its_own_key(self):
-    self.plane.receive(*KEY, 2.0)
+    self.plane.receive(*POINT, 2.0)
     perception = self.plane.perceptions[KEY]
     self.assertEqual(perception.key, KEY)
     self.assertEqual(perception.energy, 2.0)
 
   def test_a_reception_returns_the_amount_received(self):
-    self.assertEqual(self.plane.receive(*KEY, 2.0), 2.0)
+    self.assertEqual(self.plane.receive(*POINT, 2.0), 2.0)
 
   def test_a_second_reception_at_the_same_triplet_feeds_the_same_perception(self):
-    self.plane.receive(*KEY, 2.0)
+    self.plane.receive(*POINT, 2.0)
     first = self.plane.perceptions[KEY]
-    self.plane.receive(*KEY, 1.5)
+    self.plane.receive(*POINT, 1.5)
     self.assertEqual(len(self.plane.perceptions), 1)
     self.assertIs(self.plane.perceptions[KEY], first)
     self.assertEqual(first.energy, 3.5)
@@ -43,8 +44,8 @@ class ReceiveTest(unittest.TestCase):
   def test_two_hashes_give_two_perceptions_with_their_own_energy(self):
     self.plane.receive("house", 0.25, 0.75, 2.0)
     self.plane.receive("cat", 0.25, 0.75, 1.0)
-    self.assertEqual(self.plane.perceptions[("house", 0.25, 0.75)].energy, 2.0)
-    self.assertEqual(self.plane.perceptions[("cat", 0.25, 0.75)].energy, 1.0)
+    self.assertEqual(self.plane.perceptions[("house", 0.25, 0.75, 0)].energy, 2.0)
+    self.assertEqual(self.plane.perceptions[("cat", 0.25, 0.75, 0)].energy, 1.0)
 
   def test_two_positions_of_one_hash_give_two_perceptions(self):
     self.plane.receive("house", 0.25, 0.75, 1.0)
@@ -52,12 +53,12 @@ class ReceiveTest(unittest.TestCase):
     self.assertEqual(len(self.plane.perceptions), 2)
 
   def test_a_zero_amount_creates_nothing(self):
-    self.assertEqual(self.plane.receive(*KEY, 0.0), 0.0)
+    self.assertEqual(self.plane.receive(*POINT, 0.0), 0.0)
     self.assertEqual(self.plane.perceptions, {})
 
   def test_a_negative_amount_changes_nothing(self):
-    self.plane.receive(*KEY, 2.0)
-    self.assertEqual(self.plane.receive(*KEY, -1.0), 0.0)
+    self.plane.receive(*POINT, 2.0)
+    self.assertEqual(self.plane.receive(*POINT, -1.0), 0.0)
     self.assertEqual(self.plane.perceptions[KEY].energy, 2.0)
     self.assertEqual(self.plane.receive("cat", 0.25, 0.75, -1.0), 0.0)
     self.assertEqual(len(self.plane.perceptions), 1)
@@ -65,19 +66,19 @@ class ReceiveTest(unittest.TestCase):
 class PeakTest(unittest.TestCase):
   def test_a_reception_larger_than_the_peak_is_cut_at_the_peak(self):
     plane = make_plane(peak=4.0)
-    self.assertEqual(plane.receive(*KEY, 6.0), 4.0)
+    self.assertEqual(plane.receive(*POINT, 6.0), 4.0)
     self.assertEqual(plane.perceptions[KEY].energy, 4.0)
 
   def test_a_reinforcement_accepts_only_what_is_left_below_the_peak(self):
     plane = make_plane(peak=4.0)
-    plane.receive(*KEY, 3.0)
-    self.assertEqual(plane.receive(*KEY, 3.0), 1.0)
+    plane.receive(*POINT, 3.0)
+    self.assertEqual(plane.receive(*POINT, 3.0), 1.0)
     self.assertEqual(plane.perceptions[KEY].energy, 4.0)
 
   def test_a_perception_at_the_peak_accepts_nothing(self):
     plane = make_plane(peak=4.0)
-    plane.receive(*KEY, 4.0)
-    self.assertEqual(plane.receive(*KEY, 1.0), 0.0)
+    plane.receive(*POINT, 4.0)
+    self.assertEqual(plane.receive(*POINT, 1.0), 0.0)
     self.assertEqual(plane.perceptions[KEY].energy, 4.0)
 
   def test_the_peak_applies_to_each_perception_on_its_own(self):
@@ -88,13 +89,39 @@ class PeakTest(unittest.TestCase):
   def test_each_plane_has_its_own_peak(self):
     small = make_plane(peak=1.0)
     large = make_plane("C", peak=5.0)
-    self.assertEqual(small.receive(*KEY, 3.0), 1.0)
-    self.assertEqual(large.receive(*KEY, 3.0), 3.0)
+    self.assertEqual(small.receive(*POINT, 3.0), 1.0)
+    self.assertEqual(large.receive(*POINT, 3.0), 3.0)
+
+class MomentTest(unittest.TestCase):
+  def setUp(self):
+    self.moment = [0]
+    self.plane = make_plane(current_moment=lambda: self.moment[0])
+
+  def test_the_same_triplet_received_in_two_moments_gives_two_perceptions_with_their_own_energy(self):
+    self.plane.receive(*POINT, 1.0)
+    self.moment[0] = 1
+    self.plane.receive(*POINT, 2.0)
+    self.assertEqual(self.plane.perceptions[POINT + (0,)].energy, 1.0)
+    self.assertEqual(self.plane.perceptions[POINT + (1,)].energy, 2.0)
+
+  def test_a_perception_keeps_the_moment_in_which_it_was_born(self):
+    self.plane.receive(*POINT, 1.0)
+    self.moment[0] = 5
+    self.assertEqual(self.plane.perceptions[POINT + (0,)].moment, 0)
+
+  def test_a_transfer_lands_in_the_moment_in_progress_of_the_target_and_the_source_keeps_its_moment(self):
+    target = make_plane("C", current_moment=lambda: self.moment[0])
+    self.plane.receive(*POINT, 1.0)
+    self.moment[0] = 1
+    self.plane.transfer(self.plane.perceptions[POINT + (0,)], target, 0.25)
+    self.assertEqual(self.plane.perceptions[POINT + (0,)].energy, 0.75)
+    self.assertEqual(list(target.perceptions), [POINT + (1,)])
+    self.assertEqual(target.perceptions[POINT + (1,)].energy, 0.25)
 
 class RemoveTest(unittest.TestCase):
   def setUp(self):
     self.plane = make_plane()
-    self.plane.receive(*KEY, 2.0)
+    self.plane.receive(*POINT, 2.0)
     self.perception = self.plane.perceptions[KEY]
 
   def test_a_removed_perception_is_no_longer_on_the_plane(self):
@@ -103,13 +130,13 @@ class RemoveTest(unittest.TestCase):
 
   def test_the_other_perceptions_stay(self):
     self.plane.receive("cat", 0.25, 0.75, 1.0)
-    kept = self.plane.perceptions[("cat", 0.25, 0.75)]
+    kept = self.plane.perceptions[("cat", 0.25, 0.75, 0)]
     self.plane.remove(self.perception)
     self.assertEqual(list(self.plane.perceptions.values()), [kept])
 
   def test_a_perception_that_was_never_on_the_plane_is_not_removed(self):
     other = make_plane("C")
-    other.receive(*KEY, 2.0)
+    other.receive(*POINT, 2.0)
     foreign = other.perceptions[KEY]
     self.assertFalse(self.plane.remove(foreign))
     self.assertIn(KEY, other.perceptions)
@@ -120,7 +147,7 @@ class RemoveTest(unittest.TestCase):
 
   def test_a_perception_born_again_after_its_removal_is_a_new_one(self):
     self.plane.remove(self.perception)
-    self.plane.receive(*KEY, 1.0)
+    self.plane.receive(*POINT, 1.0)
     reborn = self.plane.perceptions[KEY]
     self.assertIsNot(reborn, self.perception)
     self.assertEqual(reborn.energy, 1.0)
@@ -128,7 +155,7 @@ class RemoveTest(unittest.TestCase):
 class TakeTest(unittest.TestCase):
   def setUp(self):
     self.plane = make_plane()
-    self.plane.receive(*KEY, 3.0)
+    self.plane.receive(*POINT, 3.0)
     self.perception = self.plane.perceptions[KEY]
 
   def test_the_requested_amount_is_taken_when_there_is_enough(self):
@@ -146,7 +173,7 @@ class TakeTest(unittest.TestCase):
 
   def test_a_perception_of_another_plane_loses_nothing(self):
     other = make_plane("C")
-    other.receive(*KEY, 3.0)
+    other.receive(*POINT, 3.0)
     foreign = other.perceptions[KEY]
     self.assertEqual(self.plane.take(foreign, 1.0), 0.0)
     self.assertEqual(foreign.energy, 3.0)
@@ -170,7 +197,7 @@ class TransferTest(unittest.TestCase):
   def setUp(self):
     self.source = make_plane("A", peak=10.0)
     self.target = make_plane("C", peak=4.0)
-    self.source.receive(*KEY, 3.0)
+    self.source.receive(*POINT, 3.0)
     self.perception = self.source.perceptions[KEY]
 
   def energy(self, plane):
@@ -187,7 +214,7 @@ class TransferTest(unittest.TestCase):
     self.assertNotIn(KEY, self.source.perceptions)
 
   def test_the_surplus_above_the_target_peak_stays_in_the_source(self):
-    self.source.receive(*KEY, 4.0)
+    self.source.receive(*POINT, 4.0)
     before = self.energy(self.source) + self.energy(self.target)
     self.assertEqual(self.source.transfer(self.perception, self.target, 7.0), 4.0)
     self.assertEqual(self.target.perceptions[KEY].energy, 4.0)
@@ -195,12 +222,12 @@ class TransferTest(unittest.TestCase):
     self.assertEqual(self.energy(self.source) + self.energy(self.target), before)
 
   def test_a_target_perception_at_the_peak_accepts_nothing_and_the_source_keeps_everything(self):
-    self.target.receive(*KEY, 4.0)
+    self.target.receive(*POINT, 4.0)
     self.assertEqual(self.source.transfer(self.perception, self.target, 2.0), 0.0)
     self.assertEqual(self.perception.energy, 3.0)
 
   def test_the_transfer_feeds_an_existing_perception_of_the_target(self):
-    self.target.receive(*KEY, 1.0)
+    self.target.receive(*POINT, 1.0)
     self.source.transfer(self.perception, self.target, 2.0)
     self.assertEqual(self.target.perceptions[KEY].energy, 3.0)
     self.assertEqual(len(self.target.perceptions), 1)
@@ -255,7 +282,7 @@ class VisitTest(unittest.TestCase):
 
   def test_a_perception_removed_during_a_pass_is_skipped_but_costs_a_unit(self):
     self.visit(1)
-    self.plane.take(self.plane.perceptions[("word1", 0.1, 0.5)], 1.0)
+    self.plane.take(self.plane.perceptions[("word1", 0.1, 0.5, 0)], 1.0)
     self.assertEqual(self.visit(10), (2, True))
     self.assertEqual(self.seen, ["word0", "word2"])
 
@@ -284,7 +311,7 @@ class StateTest(unittest.TestCase):
 
   def test_a_perception_that_left_the_plane_is_no_longer_in_the_state(self):
     plane = make_plane()
-    plane.receive(*KEY, 1.0)
+    plane.receive(*POINT, 1.0)
     plane.take(plane.perceptions[KEY], 1.0)
     self.assertEqual(plane.state()["perceptions"], [])
 

@@ -3,21 +3,23 @@ import collections
 from perception import Perception
 
 class Plane:
-  def __init__(self, config):
+  def __init__(self, config, current_moment):
     self.uid = config["uid"]
     self.peak = config["peak"]
+    self.current_moment = current_moment
     self.perceptions = {}
     self.visit_queue = None
 
   def receive(self, hash_, x, y, amount):
-    key = (hash_, x, y)
+    moment = self.current_moment()
+    key = (hash_, x, y, moment)
     perception = self.perceptions.get(key)
     room = self.peak - (perception.energy if perception is not None else 0.0)
     accepted = min(amount, room)
     if accepted <= 0:
       return 0.0
     if perception is None:
-      perception = self.perceptions[key] = Perception(hash_, x, y)
+      perception = self.perceptions[key] = Perception(hash_, x, y, moment)
     perception.energy += accepted
     return accepted
 

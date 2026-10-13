@@ -11,8 +11,8 @@ class Unit:
   def __init__(self, config):
     validate_config(config)
     self.config = copy.deepcopy(config)
-    self.planes = {entry["uid"]: Plane(entry) for entry in self.config["planes"]}
     self.scheduler = Scheduler(self.config)
+    self.planes = {entry["uid"]: Plane(entry, self.current_moment) for entry in self.config["planes"]}
     self.generator = Generator(self.config["random"]["seed"])
     self.cursors = [
       Cursor(transfer, self.planes[entry["uid"]], self.planes[transfer["target"]], self.generator)
@@ -22,6 +22,9 @@ class Unit:
     for cursor in self.cursors:
       cursor.restart()
       cursor.start(self.scheduler)
+
+  def current_moment(self):
+    return self.scheduler.moment
 
   @property
   def ticks(self):
