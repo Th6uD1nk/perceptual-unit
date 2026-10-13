@@ -6,7 +6,7 @@
   </head>
   <body>
     <div>
-      <input id="token" type="text" autocomplete="off" placeholder="token">
+      <input id="token" type="text" autocomplete="off" placeholder="text">
       <button id="send">Send</button>
     </div>
     <div>moment <span id="moment"></span></div>
@@ -82,10 +82,10 @@
       }
 
       async function send() {
-        const response = await fetch("/api/token", {
+        const response = await fetch("/api/text", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({token: field.value})
+          body: JSON.stringify({text: field.value})
         });
         if (response.ok) {
           field.value = "";

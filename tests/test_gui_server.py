@@ -11,7 +11,7 @@ import support
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "gui"))
 
-from server import PAGE_PATH, TOKEN_ENERGY, load_unit, make_server, step_clock
+from server import PAGE_PATH, WORD_ENERGY, load_unit, make_server, step_clock
 
 class LoadUnitTest(unittest.TestCase):
   def test_the_unit_of_the_gui_has_the_planes_a_and_c_and_a_cursor_from_a_to_c(self):
@@ -52,21 +52,20 @@ class ServerTest(unittest.TestCase):
       self.assertIn("application/json", response.headers["Content-Type"])
       self.assertEqual(json.loads(response.read()), self.server.unit.state())
 
-  def post(self, body):
-    request = urllib.request.Request(self.base + "/api/token", data=body, headers={"Content-Type": "application/json"}, method="POST")
+  def post(self, body, path="/api/text"):
+    request = urllib.request.Request(self.base + path, data=body, headers={"Content-Type": "application/json"}, method="POST")
     return urllib.request.urlopen(request)
 
-  def test_a_posted_token_enters_the_unit_and_the_new_state_comes_back(self):
-    with self.post(b'{"token": "house"}') as response:
+  def test_a_posted_text_enters_the_unit_word_by_word_and_the_new_state_comes_back(self):
+    with self.post(b'{"text": "The cat, the"}') as response:
       self.assertEqual(response.status, 200)
       state = json.loads(response.read())
-    perceptions = state["planes"][0]["perceptions"]
-    self.assertEqual(len(perceptions), 1)
-    self.assertEqual(perceptions[0]["energy"], TOKEN_ENERGY)
+    energies = sorted(perception["energy"] for perception in state["planes"][0]["perceptions"])
+    self.assertEqual(energies, [WORD_ENERGY, 2 * WORD_ENERGY])
     self.assertEqual(state, self.server.unit.state())
 
   def test_an_invalid_body_is_refused_with_a_message_and_nothing_enters_the_unit(self):
-    for body in (b'{"token": ""}', b'{}', b'{"token": 3}', b'[1]', b'not json'):
+    for body in (b'{"text": ""}', b'{"text": "?!"}', b'{}', b'{"text": 3}', b'[1]', b'not json'):
       with self.assertRaises(urllib.error.HTTPError, msg=body) as caught:
         self.post(body)
       self.assertEqual(caught.exception.code, 400)
@@ -100,6 +99,9 @@ class ServerTest(unittest.TestCase):
   def test_an_unknown_route_is_not_found(self):
     with self.assertRaises(urllib.error.HTTPError) as caught:
       urllib.request.urlopen(self.base + "/unknown")
+    self.assertEqual(caught.exception.code, 404)
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self.post(b'{"token": "house"}', "/api/token")
     self.assertEqual(caught.exception.code, 404)
 
   def test_the_server_holds_the_unit_it_was_given(self):

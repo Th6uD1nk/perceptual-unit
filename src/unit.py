@@ -32,12 +32,6 @@ class Unit:
   def update(self, dt_ms):
     return self.scheduler.advance(dt_ms)
 
-  def feed(self, token, energy):
-    if not isinstance(token, str) or not token:
-      raise ValueError("token: must be a non-empty string")
-    x, y = token_position(token)
-    return next(iter(self.planes.values())).receive(token_hash(token), x, y, energy)
-
   def feed_flow(self, tokens, energy):
     if not isinstance(tokens, list) or not tokens or any(not isinstance(token, str) or not token for token in tokens):
       raise ValueError("tokens: must be a non-empty list of non-empty strings")
