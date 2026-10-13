@@ -20,6 +20,7 @@ class Plane:
       return 0.0
     if perception is None:
       perception = self.perceptions[key] = Perception(hash_, x, y, moment)
+      self.moments.born(moment)
     perception.energy += accepted
     return accepted
 
@@ -27,6 +28,7 @@ class Plane:
     if self.perceptions.get(perception.key) is not perception:
       return False
     del self.perceptions[perception.key]
+    self.moments.died(perception.moment)
     return True
 
   def take(self, perception, amount):

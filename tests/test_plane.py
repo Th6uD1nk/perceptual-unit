@@ -121,6 +121,42 @@ class MomentTest(unittest.TestCase):
     self.assertEqual(list(target.perceptions), [POINT + (1,)])
     self.assertEqual(target.perceptions[POINT + (1,)].energy, 0.25)
 
+class CountTest(unittest.TestCase):
+  def setUp(self):
+    self.clock = SimpleNamespace(moment=0)
+    self.moments = Moments(self.clock)
+    self.plane = make_plane(moments=self.moments)
+
+  def test_a_reception_that_creates_a_perception_counts_it_and_a_reinforcement_does_not(self):
+    self.plane.receive(*POINT, 1.0)
+    self.plane.receive(*POINT, 1.0)
+    self.assertEqual(self.moments.count(0), 1)
+
+  def test_two_perceptions_of_one_moment_count_two(self):
+    self.plane.receive(*POINT, 1.0)
+    self.plane.receive("cat", 0.5, 0.5, 1.0)
+    self.assertEqual(self.moments.count(0), 2)
+
+  def test_a_removal_takes_one_off_the_count_of_the_moment_of_the_perception_and_not_of_the_moment_in_progress(self):
+    self.plane.receive(*POINT, 1.0)
+    self.clock.moment = 1
+    self.plane.remove(self.plane.perceptions[KEY])
+    self.assertEqual((self.moments.count(0), self.moments.count(1)), (0, 0))
+
+  def test_a_perception_emptied_by_a_take_leaves_the_count_and_a_partial_take_does_not(self):
+    self.plane.receive(*POINT, 1.0)
+    self.plane.take(self.plane.perceptions[KEY], 0.5)
+    self.assertEqual(self.moments.count(0), 1)
+    self.plane.take(self.plane.perceptions[KEY], 0.5)
+    self.assertEqual(self.moments.count(0), 0)
+
+  def test_a_transfer_that_empties_the_source_moves_the_count_to_the_moment_in_progress_of_the_target(self):
+    target = make_plane("C", moments=self.moments)
+    self.plane.receive(*POINT, 1.0)
+    self.clock.moment = 1
+    self.plane.transfer(self.plane.perceptions[KEY], target, 1.0)
+    self.assertEqual((self.moments.count(0), self.moments.count(1)), (0, 1))
+
 class RemoveTest(unittest.TestCase):
   def setUp(self):
     self.plane = make_plane()

@@ -154,6 +154,14 @@ class EndToEndTest(unittest.TestCase):
     self.advance(unit, 40)
     self.assertAlmostEqual(self.energy(unit.planes["A"]) + self.energy(unit.planes["C"]), 0.2)
 
+  def test_the_count_of_the_moment_follows_the_perceptions_of_all_the_planes(self):
+    unit = self.unit()
+    self.assertEqual(unit.moments.count(0), 1)
+    self.advance(unit, 40)
+    self.assertEqual(unit.moments.count(0), 2)
+    self.advance(unit, 760)
+    self.assertEqual(unit.moments.count(0), 1)
+
   def test_a_source_perception_that_is_read_until_it_is_empty_leaves_its_plane(self):
     unit = self.unit()
     self.advance(unit, 800)
