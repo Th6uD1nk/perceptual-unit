@@ -10,6 +10,9 @@ class Scheduler:
     validate_scheduler(config)
     self.tick_us = round(config["scheduler"]["tick"] * MICROSECONDS_PER_MILLISECOND)
     self.budget = config["scheduler"]["budget"]
+    self.moment_ticks = config["scheduler"]["moment"]
+    self.moment = 0
+    self.moment_start = 0
     self.ticks = 0
     self.elapsed_us = 0
     self.queue = collections.deque()
@@ -37,5 +40,8 @@ class Scheduler:
     self.elapsed_us -= count * self.tick_us
     for _ in range(count):
       self.ticks += 1
+      if self.ticks - self.moment_start >= self.moment_ticks:
+        self.moment += 1
+        self.moment_start = self.ticks
       self.cycle()
     return count

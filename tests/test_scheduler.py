@@ -4,8 +4,8 @@ import unittest
 import support
 from scheduler import Scheduler
 
-def make_scheduler(tick=4.0, budget=0):
-  return Scheduler({"scheduler": {"tick": tick, "budget": budget}})
+def make_scheduler(tick=4.0, budget=0, moment=1000):
+  return Scheduler({"scheduler": {"tick": tick, "budget": budget, "moment": moment}})
 
 class AdvanceTest(unittest.TestCase):
   def test_a_new_scheduler_has_no_tick(self):
@@ -170,6 +170,35 @@ class BudgetTest(unittest.TestCase):
     self.scheduler.advance(4.0)
     self.assertEqual(self.calls, ["a", "b"])
 
+class MomentTest(unittest.TestCase):
+  def test_the_first_moment_is_open_at_the_start(self):
+    self.assertEqual(make_scheduler().moment, 0)
+
+  def test_a_new_moment_opens_when_its_duration_in_ticks_is_over(self):
+    scheduler = make_scheduler(tick=1.0, moment=3)
+    scheduler.advance(2.0)
+    self.assertEqual(scheduler.moment, 0)
+    scheduler.advance(1.0)
+    self.assertEqual(scheduler.moment, 1)
+    scheduler.advance(3.0)
+    self.assertEqual(scheduler.moment, 2)
+
+  def test_several_moments_open_when_many_ticks_pass_at_once(self):
+    scheduler = make_scheduler(tick=1.0, moment=3)
+    scheduler.advance(10.0)
+    self.assertEqual(scheduler.moment, 3)
+
+  def test_the_works_of_the_tick_that_opens_a_moment_already_see_the_new_moment(self):
+    scheduler = make_scheduler(tick=1.0, moment=2)
+    seen = []
+    def work(units):
+      seen.append(scheduler.moment)
+      scheduler.submit(work)
+      return 0
+    scheduler.submit(work)
+    scheduler.advance(4.0)
+    self.assertEqual(seen, [0, 1, 1, 2])
+
 class ConfigTest(unittest.TestCase):
   def rejected(self, config):
     with self.assertRaises(ValueError) as caught:
@@ -190,13 +219,20 @@ class ConfigTest(unittest.TestCase):
 
   def test_the_budget_must_be_an_integer_of_at_least_zero(self):
     for budget in (-1, 1.5, "5", None, True):
-      self.assertIn("config.scheduler.budget", self.rejected({"scheduler": {"tick": 4.0, "budget": budget}}), repr(budget))
+      self.assertIn("config.scheduler.budget", self.rejected({"scheduler": {"tick": 4.0, "budget": budget, "moment": 10}}), repr(budget))
 
   def test_the_budget_is_required(self):
     self.assertIn("config.scheduler.budget", self.rejected({"scheduler": {"tick": 4.0}}))
 
+  def test_the_moment_is_required(self):
+    self.assertIn("config.scheduler.moment", self.rejected({"scheduler": {"tick": 4.0, "budget": 0}}))
+
+  def test_the_moment_must_be_an_integer_of_at_least_one(self):
+    for moment in (0, -1, 1.5, "5", None, True):
+      self.assertIn("config.scheduler.moment", self.rejected({"scheduler": {"tick": 4.0, "budget": 0, "moment": moment}}), repr(moment))
+
   def test_a_budget_of_zero_is_accepted(self):
-    Scheduler({"scheduler": {"tick": 4.0, "budget": 0}})
+    Scheduler({"scheduler": {"tick": 4.0, "budget": 0, "moment": 10}})
 
   def test_the_tick_must_be_a_number_of_at_least_one_microsecond(self):
     for tick in (0, -1, 0.0005, "4", None, True, [4]):

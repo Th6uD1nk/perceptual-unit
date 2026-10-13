@@ -1,5 +1,5 @@
 {
-  "scheduler": {"tick": 20.0, "budget": 0},
+  "scheduler": {"tick": 20.0, "budget": 0, "moment": 500},
   "random": {"seed": 1},
   "planes": [
     {

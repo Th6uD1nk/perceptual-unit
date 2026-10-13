@@ -16,7 +16,7 @@ def transfer(target, **changes):
   return dict({"target": target, "energy": 0.0625, "step": 0.25, "cooldown": 0, "attraction": 0.0, "distance_power": 2.0, "impact": 0.0, "cycle": 10}, **changes)
 
 def make_config(planes, tick=4.0, seed=1):
-  return {"scheduler": {"tick": tick, "budget": 0}, "random": {"seed": seed}, "planes": planes}
+  return {"scheduler": {"tick": tick, "budget": 0, "moment": 1000}, "random": {"seed": seed}, "planes": planes}
 
 CONFIG = make_config([entry("A", 4.0), entry("C", 2.0), entry("D", 1.0)])
 

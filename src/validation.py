@@ -73,6 +73,11 @@ def validate_scheduler(config):
   budget = section["budget"]
   if isinstance(budget, bool) or not isinstance(budget, int) or budget < 0:
     fail("config.scheduler.budget", "must be an integer of at least 0")
+  if "moment" not in section:
+    fail("config.scheduler.moment", "missing")
+  moment = section["moment"]
+  if isinstance(moment, bool) or not isinstance(moment, int) or moment < 1:
+    fail("config.scheduler.moment", "must be an integer of at least 1")
 
 def validate_random(config):
   if "random" not in config:
