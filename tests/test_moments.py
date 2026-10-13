@@ -70,6 +70,58 @@ class EventTest(unittest.TestCase):
   def test_a_moment_without_events_gives_an_empty_list(self):
     self.assertEqual(self.moments.events(9), [])
 
+class ContextTest(unittest.TestCase):
+  def setUp(self):
+    self.moments = support.moments()
+
+  def test_the_contexts_of_an_event_of_three_words_are_its_three_neighborhoods(self):
+    self.moments.record(["a", "b", "c"])
+    self.assertEqual(self.moments.contexts(0), {(None, "b"): {"a": 1}, ("a", "c"): {"b": 1}, ("b", None): {"c": 1}})
+
+  def test_an_event_of_one_word_has_no_neighbor_on_either_side(self):
+    self.moments.record(["a"])
+    self.assertEqual(self.moments.contexts(0), {(None, None): {"a": 1}})
+
+  def test_the_same_event_recorded_twice_counts_each_context_twice(self):
+    self.moments.record(["a", "b", "c"])
+    self.moments.record(["a", "b", "c"])
+    self.assertEqual(self.moments.contexts(0)[("a", "c")], {"b": 2})
+
+  def test_two_events_with_the_same_neighbors_and_another_middle_share_the_context(self):
+    self.moments.record(["a", "x", "c"])
+    self.moments.record(["a", "y", "c"])
+    self.assertEqual(self.moments.contexts(0)[("a", "c")], {"x": 1, "y": 1})
+
+  def test_a_word_repeated_in_an_event_gives_one_context_per_position(self):
+    self.moments.record(["a", "b", "a"])
+    self.assertEqual(self.moments.contexts(0), {(None, "b"): {"a": 1}, ("a", "a"): {"b": 1}, ("b", None): {"a": 1}})
+
+  def test_each_moment_has_its_own_contexts(self):
+    self.moments.born(0)
+    self.moments.record(["a", "b"])
+    self.moments.scheduler.moment = 1
+    self.moments.record(["c", "d"])
+    self.assertEqual(self.moments.contexts(0), {(None, "b"): {"a": 1}, ("a", None): {"b": 1}})
+    self.assertEqual(self.moments.contexts(1), {(None, "d"): {"c": 1}, ("c", None): {"d": 1}})
+
+  def test_the_contexts_given_back_are_independent_of_the_stored_ones(self):
+    self.moments.record(["a", "b"])
+    given = self.moments.contexts(0)
+    given[("a", None)]["b"] = 9
+    given[("z", "z")] = {}
+    self.assertEqual(self.moments.contexts(0), {(None, "b"): {"a": 1}, ("a", None): {"b": 1}})
+
+  def test_a_moment_without_events_has_no_context(self):
+    self.assertEqual(self.moments.contexts(9), {})
+
+  def test_the_contexts_are_released_with_the_events_of_a_closed_moment_without_perception(self):
+    self.moments.born(0)
+    self.moments.record(["a", "b"])
+    self.moments.scheduler.moment = 1
+    self.assertNotEqual(self.moments.contexts(0), {})
+    self.moments.died(0)
+    self.assertEqual(self.moments.contexts(0), {})
+
 class ReleaseTest(unittest.TestCase):
   def setUp(self):
     self.moments = support.moments()
