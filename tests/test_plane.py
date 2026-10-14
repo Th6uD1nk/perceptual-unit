@@ -11,8 +11,8 @@ from plane import Plane
 POINT = ("house", 0.25, 0.75)
 KEY = POINT + (0,)
 
-def make_plane(uid="A", peak=10.0, moments=None):
-  return Plane({"uid": uid, "peak": peak}, moments if moments is not None else support.moments())
+def make_plane(uid="A", peak=10.0, moments=None, origin_radius=10.0):
+  return Plane({"uid": uid, "peak": peak, "origin_radius": origin_radius}, moments if moments is not None else support.moments())
 
 class PlaneTest(unittest.TestCase):
   def test_a_new_plane_holds_no_perception(self):
@@ -207,6 +207,54 @@ class MoveTest(unittest.TestCase):
     for key in (("cat", 0.5, 0.75, 0), ("house", 0.5, 0.75, 1)):
       self.plane.move(self.plane.perceptions[key], 0.25, 0.75)
     self.assertEqual(len(self.plane.perceptions), 3)
+
+class OriginRadiusTest(unittest.TestCase):
+  def setUp(self):
+    self.plane = make_plane(peak=4.0, origin_radius=0.1)
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.perception = self.plane.perceptions[("house", 0.5, 0.5, 0)]
+
+  def test_a_move_inside_the_radius_goes_where_it_is_asked(self):
+    self.plane.move(self.perception, 0.55, 0.45)
+    self.assertEqual((self.perception.x, self.perception.y), (0.55, 0.45))
+
+  def test_a_move_beyond_the_radius_stops_on_the_circle_in_the_same_direction(self):
+    self.plane.move(self.perception, 0.9, 0.5)
+    self.assertAlmostEqual(self.perception.x, 0.6)
+    self.assertAlmostEqual(self.perception.y, 0.5)
+    self.plane.move(self.perception, 0.5 + 0.3, 0.5 + 0.4)
+    self.assertAlmostEqual(self.perception.x, 0.5 + 0.1 * 0.6)
+    self.assertAlmostEqual(self.perception.y, 0.5 + 0.1 * 0.8)
+
+  def test_the_radius_is_around_the_origin_and_not_around_the_last_position(self):
+    for _ in range(10):
+      self.plane.move(self.perception, self.perception.x + 0.05, self.perception.y)
+    self.assertAlmostEqual(self.perception.x, 0.6)
+    self.assertEqual((self.perception.origin_x, self.perception.origin_y), (0.5, 0.5))
+
+  def test_a_perception_can_come_back_toward_its_origin(self):
+    self.plane.move(self.perception, 0.9, 0.5)
+    self.plane.move(self.perception, 0.52, 0.5)
+    self.assertAlmostEqual(self.perception.x, 0.52)
+
+  def test_the_position_stays_in_the_plane_when_the_circle_overflows(self):
+    plane = make_plane(peak=4.0, origin_radius=0.5)
+    plane.receive("house", 0.9, 0.9, 1.0)
+    perception = plane.perceptions[("house", 0.9, 0.9, 0)]
+    plane.move(perception, 2.0, 2.0)
+    self.assertTrue(0.0 <= perception.x <= 1.0 and 0.0 <= perception.y <= 1.0)
+
+  def test_the_key_and_the_indexes_follow_the_limited_position(self):
+    self.plane.move(self.perception, 0.9, 0.5)
+    self.assertIs(self.plane.perceptions[("house", self.perception.x, 0.5, 0)], self.perception)
+    self.assertEqual(self.plane.living("house"), [self.perception])
+    self.assertEqual(self.plane.of_moment(0), [self.perception])
+
+  def test_the_origin_of_a_perception_born_by_a_transfer_is_the_position_of_that_birth(self):
+    target = make_plane("C", peak=4.0, origin_radius=0.1)
+    self.plane.transfer(self.perception, target, 0.5)
+    arrived = target.perceptions[("house", 0.5, 0.5, 0)]
+    self.assertEqual((arrived.origin_x, arrived.origin_y), (0.5, 0.5))
 
 class OneByWordAndMomentTest(unittest.TestCase):
   def setUp(self):

@@ -1,4 +1,5 @@
 import collections
+import math
 
 from perception import Perception
 
@@ -11,6 +12,7 @@ class Plane:
   def __init__(self, config, moments):
     self.uid = config["uid"]
     self.peak = config["peak"]
+    self.origin_radius = config["origin_radius"]
     self.moments = moments
     self.perceptions = {}
     self.by_moment = {}
@@ -45,6 +47,11 @@ class Plane:
   def move(self, perception, x, y):
     if self.perceptions.get(perception.key) is not perception:
       return None
+    dx, dy = x - perception.origin_x, y - perception.origin_y
+    distance = math.hypot(dx, dy)
+    if distance > self.origin_radius:
+      x = perception.origin_x + dx * self.origin_radius / distance
+      y = perception.origin_y + dy * self.origin_radius / distance
     x = max(0.0, min(1.0, x))
     y = max(0.0, min(1.0, y))
     key = (perception.hash, x, y, perception.moment)

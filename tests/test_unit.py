@@ -11,8 +11,8 @@ from unit import Unit
 
 MEMORY = {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0, "coexpression": 1.0, "kappa": 1.0, "amplify": 2.0}
 
-def entry(uid, peak=1.0, transfers=None, relax=None):
-  return {"uid": uid, "peak": peak, "relax": relax, "transfers": transfers if transfers is not None else []}
+def entry(uid, peak=1.0, transfers=None, relax=None, origin_radius=10.0):
+  return {"uid": uid, "peak": peak, "origin_radius": origin_radius, "relax": relax, "transfers": transfers if transfers is not None else []}
 
 def transfer(target, **changes):
   return dict({"target": target, "energy": 0.0625, "step": 0.25, "cooldown": 0, "attraction": 0.0, "distance_power": 2.0, "impact": 0.0, "cycle": 10, "minimum_age": 0}, **changes)
@@ -269,6 +269,14 @@ class ConfigWiringTest(unittest.TestCase):
     config = make_config([entry("A")])
     del config["memory"]
     self.assertIn("config.memory", self.rejected(config))
+
+  def test_the_origin_radius_of_a_plane_is_required_and_must_be_a_number_greater_than_zero(self):
+    plane = entry("A")
+    del plane["origin_radius"]
+    self.assertIn("config.planes[0].origin_radius", self.rejected(make_config([plane])))
+    for radius in (0, -0.1, "0.1", None, True, [0.1]):
+      self.assertIn("config.planes[0].origin_radius", self.rejected(make_config([entry("A", origin_radius=radius)])), repr(radius))
+    Unit(make_config([entry("A", origin_radius=0.05)]))
 
   def test_the_relax_of_a_plane_is_required_and_must_be_null_or_shape(self):
     plane = entry("A")

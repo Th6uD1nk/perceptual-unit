@@ -1,5 +1,5 @@
 class Perception:
-  __slots__ = ("hash", "x", "y", "moment", "energy", "reads", "born")
+  __slots__ = ("hash", "x", "y", "moment", "energy", "reads", "born", "origin_x", "origin_y")
 
   def __init__(self, hash_, x, y, moment, born=0):
     self.hash = hash_
@@ -9,6 +9,8 @@ class Perception:
     self.energy = 0.0
     self.reads = {}
     self.born = born
+    self.origin_x = x
+    self.origin_y = y
 
   @property
   def key(self):

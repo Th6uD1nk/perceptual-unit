@@ -32,6 +32,20 @@ class PerceptionTest(unittest.TestCase):
     with self.assertRaises(AttributeError):
       Perception("house", 0.1, 0.1, 0).other = 3
 
+class OriginTest(unittest.TestCase):
+  def test_the_origin_is_the_position_of_the_birth(self):
+    perception = Perception("house", 0.25, 0.75, 0)
+    self.assertEqual((perception.origin_x, perception.origin_y), (0.25, 0.75))
+
+  def test_the_origin_does_not_follow_the_position(self):
+    perception = Perception("house", 0.25, 0.75, 0)
+    perception.x, perception.y = 0.5, 0.5
+    self.assertEqual((perception.origin_x, perception.origin_y), (0.25, 0.75))
+    self.assertEqual(perception.key, ("house", 0.5, 0.5, 0))
+
+  def test_the_origin_is_not_in_the_state(self):
+    self.assertNotIn("origin_x", Perception("house", 0.25, 0.75, 0).state())
+
 class AgeTest(unittest.TestCase):
   def test_a_perception_is_born_at_tick_zero_by_default(self):
     self.assertEqual(Perception("house", 0.25, 0.75, 0).born, 0)

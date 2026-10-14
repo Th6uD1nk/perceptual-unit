@@ -25,7 +25,7 @@ class BirthTest(unittest.TestCase):
   def setUp(self):
     self.memory = Memory(CONFIG)
     self.clock = SimpleNamespace(moment=0, ticks=0)
-    self.plane = Plane({"uid": "A", "peak": 4.0}, Moments(self.clock, 2))
+    self.plane = Plane({"uid": "A", "peak": 4.0, "origin_radius": 10.0}, Moments(self.clock, 2))
     self.base = central_word()
     self.similar = self.base + "s"
 
@@ -100,7 +100,7 @@ class PullTest(unittest.TestCase):
     for word in ("cat", "cats", "dog"):
       self.memory.lexicon.add(word)
     self.clock = SimpleNamespace(moment=0, ticks=0)
-    self.plane = Plane({"uid": "A", "peak": 4.0}, Moments(self.clock, 2))
+    self.plane = Plane({"uid": "A", "peak": 4.0, "origin_radius": 10.0}, Moments(self.clock, 2))
 
   def perception(self, word, x, y, energy=1.0, moment=0):
     self.clock.moment = moment
@@ -134,7 +134,7 @@ class PullTest(unittest.TestCase):
   def test_a_perception_with_twice_the_energy_moves_half_as_far(self):
     moves = []
     for energy in (1.0, 2.0):
-      plane = Plane({"uid": "B", "peak": 4.0}, Moments(self.clock, 2))
+      plane = Plane({"uid": "B", "peak": 4.0, "origin_radius": 10.0}, Moments(self.clock, 2))
       plane.receive(token_hash("cat"), 0.3, 0.5, energy)
       plane.receive(token_hash("dog"), 0.7, 0.5, 1.0)
       cat = plane.perceptions[(token_hash("cat"), 0.3, 0.5, 0)]
@@ -197,7 +197,7 @@ class PullUsageTest(unittest.TestCase):
     self.memory = Memory(config(rate=0.05))
     self.clock = SimpleNamespace(moment=0, ticks=0)
     self.moments = Moments(self.clock, 2)
-    self.plane = Plane({"uid": "A", "peak": 4.0}, self.moments)
+    self.plane = Plane({"uid": "A", "peak": 4.0, "origin_radius": 10.0}, self.moments)
 
   def perception(self, word, x, y, energy=1.0, moment=0):
     self.clock.moment = moment

@@ -13,7 +13,7 @@ CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "wind
 class RelaxationTest(unittest.TestCase):
   def setUp(self):
     self.memory = Memory(CONFIG)
-    self.plane = Plane({"uid": "A", "peak": 4.0}, support.moments())
+    self.plane = Plane({"uid": "A", "peak": 4.0, "origin_radius": 10.0}, support.moments())
     self.relaxation = Relaxation(self.memory, self.plane)
 
   def add(self, word, x, y, energy=1.0):
@@ -63,6 +63,15 @@ class RelaxationTest(unittest.TestCase):
     cats = self.add("cats", 0.7, 0.5)
     self.scheduler().advance(5.0)
     self.assertLess(math.hypot(cat.x - cats.x, cat.y - cats.y), 0.4)
+
+  def test_the_perceptions_stay_within_the_origin_radius_over_the_passes(self):
+    self.plane = Plane({"uid": "A", "peak": 4.0, "origin_radius": 0.05}, support.moments())
+    self.relaxation = Relaxation(self.memory, self.plane)
+    perceptions = [self.add(word, x, y) for word, x, y in (("cat", 0.2, 0.2), ("cats", 0.7, 0.2), ("dog", 0.2, 0.7), ("pig", 0.7, 0.7))]
+    self.scheduler().advance(60.0)
+    for perception in perceptions:
+      self.assertLessEqual(math.hypot(perception.x - perception.origin_x, perception.y - perception.origin_y), 0.05 + 1e-9)
+    self.assertTrue(any((p.x, p.y) != (p.origin_x, p.origin_y) for p in perceptions))
 
   def test_nothing_happens_on_an_empty_plane(self):
     self.scheduler().advance(5.0)
