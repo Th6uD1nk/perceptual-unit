@@ -2,36 +2,36 @@
   "scheduler": {"tick": 20.0, "budget": 3000, "moment": 500},
   "random": {"seed": 1},
   "input": {"energy": 0.125},
-  "memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "range": 0.7, "rest": 0.02, "far": 0.2, "base": 0.4, "rate": 0.03, "coexpression": 0, "kappa": 0.5, "amplify": 1.0},
+  "memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "range": 0.7, "rest": 0.02, "far": 0.2, "base": 0.4, "rate": 0.001, "coexpression": 0, "kappa": 0.5, "amplify": 1.0},
   "planes": [
     {
       "uid": "A",
       "peak": 0.25,
-      "merge": 0.02,
+      "merge": 0.05,
       "relax": "usage",
       "transfers": [
-        {"target": "C", "energy": 0.02, "step": 0.08, "cooldown": 50, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 0},
-        {"target": null, "energy": 0.002, "step": 0.01, "cooldown": 25, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 1500},
-        {"target": "D", "energy": 0.01, "step": 0.04, "cooldown": 50, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 0}
+        {"target": "C", "energy": 0.01, "step": 0.08, "cooldown": 50, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 0},
+        {"target": null, "energy": 0.002, "step": 0.02, "cooldown": 750, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 1500},
+        {"target": "D", "energy": 0.01, "step": 0.02, "cooldown": 750, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 0}
       ]
     },
     {
       "uid": "C",
       "peak": 0.25,
-      "merge": 0.05,
+      "merge": 0.1,
       "relax": "shape",
       "transfers": [
-        {"target": null, "energy": 0.004, "step": 0.01, "cooldown": 250, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 1000, "minimum_age": 500},
-        {"target": "D", "energy": 0.002, "step": 0.01, "cooldown": 50, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 500, "minimum_age": 0}
+        {"target": null, "energy": 0.004, "step": 0.01, "cooldown": 750, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 1000, "minimum_age": 500},
+        {"target": "D", "energy": 0.008, "step": 0.005, "cooldown": 50, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 500, "minimum_age": 0}
       ]
     },
     {
       "uid": "D",
       "peak": 0.5,
-      "merge": 0.05,
+      "merge": 0.1,
       "relax": null,
       "transfers": [
-        {"target": null, "energy": 0.008, "step": 0.02, "cooldown": 100, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 100}
+        {"target": null, "energy": 0.008, "step": 0.02, "cooldown": 250, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 500}
       ]
     }
   ]
