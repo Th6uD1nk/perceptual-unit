@@ -7,7 +7,6 @@
     {
       "uid": "A",
       "peak": 0.25,
-      "merge": 0.05,
       "relax": "usage",
       "transfers": [
         {"target": "C", "energy": 0.01, "step": 0.08, "cooldown": 50, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 0},
@@ -18,7 +17,6 @@
     {
       "uid": "C",
       "peak": 0.25,
-      "merge": 0.1,
       "relax": "shape",
       "transfers": [
         {"target": null, "energy": 0.004, "step": 0.01, "cooldown": 750, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 1000, "minimum_age": 500},
@@ -28,7 +26,6 @@
     {
       "uid": "D",
       "peak": 0.5,
-      "merge": 0.1,
       "relax": null,
       "transfers": [
         {"target": null, "energy": 0.008, "step": 0.02, "cooldown": 250, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 500}

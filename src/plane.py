@@ -1,5 +1,4 @@
 import collections
-import math
 
 from perception import Perception
 
@@ -12,7 +11,6 @@ class Plane:
   def __init__(self, config, moments):
     self.uid = config["uid"]
     self.peak = config["peak"]
-    self.merge = config["merge"]
     self.moments = moments
     self.perceptions = {}
     self.by_moment = {}
@@ -24,7 +22,7 @@ class Plane:
 
   def receive(self, hash_, x, y, amount):
     moment = self.moments.current()
-    perception = self.nearest(hash_, x, y, moment)
+    perception = self.find(hash_, moment)
     room = self.peak - (perception.energy if perception is not None else 0.0)
     accepted = min(amount, room)
     if accepted <= 0:
@@ -38,15 +36,11 @@ class Plane:
     perception.energy += accepted
     return accepted
 
-  def nearest(self, hash_, x, y, moment):
-    found, found_distance = None, None
+  def find(self, hash_, moment):
     for perception in self.by_hash.get(hash_, {}).values():
-      if perception.moment != moment:
-        continue
-      distance = math.hypot(perception.x - x, perception.y - y)
-      if distance <= self.merge and (found is None or distance < found_distance):
-        found, found_distance = perception, distance
-    return found
+      if perception.moment == moment:
+        return perception
+    return None
 
   def move(self, perception, x, y):
     if self.perceptions.get(perception.key) is not perception:
@@ -56,23 +50,15 @@ class Plane:
     key = (perception.hash, x, y, perception.moment)
     if key == perception.key:
       return perception
-    existing = self.perceptions.get(key)
-    if existing is None:
-      del self.perceptions[perception.key]
-      del self.by_moment[perception.moment][perception.key]
-      del self.by_hash[perception.hash][perception.key]
-      perception.x = x
-      perception.y = y
-      self.perceptions[perception.key] = perception
-      self.by_moment[perception.moment][perception.key] = perception
-      self.by_hash[perception.hash][perception.key] = perception
-      return perception
-    moved = min(perception.energy, self.peak - existing.energy)
-    existing.energy += moved
-    perception.energy -= moved
-    if perception.energy <= 0:
-      self.remove(perception)
-    return existing
+    del self.perceptions[perception.key]
+    del self.by_moment[perception.moment][perception.key]
+    del self.by_hash[perception.hash][perception.key]
+    perception.x = x
+    perception.y = y
+    self.perceptions[perception.key] = perception
+    self.by_moment[perception.moment][perception.key] = perception
+    self.by_hash[perception.hash][perception.key] = perception
+    return perception
 
   def living(self, hash_):
     return list(self.by_hash.get(hash_, {}).values())

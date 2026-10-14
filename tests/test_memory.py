@@ -25,7 +25,7 @@ class BirthTest(unittest.TestCase):
   def setUp(self):
     self.memory = Memory(CONFIG)
     self.clock = SimpleNamespace(moment=0, ticks=0)
-    self.plane = Plane({"uid": "A", "peak": 4.0, "merge": 0}, Moments(self.clock, 2))
+    self.plane = Plane({"uid": "A", "peak": 4.0}, Moments(self.clock, 2))
     self.base = central_word()
     self.similar = self.base + "s"
 
@@ -70,14 +70,14 @@ class BirthTest(unittest.TestCase):
     self.assertLess(math.hypot(x - 0.4, y - 0.4), 0.16)
 
   def test_the_strongest_living_perception_of_the_neighbor_is_chosen(self):
-    self.live(self.base, 0.4, 0.4, energy=1.0)
-    self.live(self.base, 0.2, 0.2, energy=2.0)
+    self.live(self.base, 0.4, 0.4, energy=1.0, moment=0)
+    self.live(self.base, 0.2, 0.2, energy=2.0, moment=1)
     x, y = self.birth(self.similar)
     self.assertLess(math.hypot(x - 0.2, y - 0.2), 0.16)
 
   def test_a_word_that_is_already_living_is_born_at_its_strongest_perception(self):
-    self.live(self.similar, 0.6, 0.6, energy=1.0)
-    self.live(self.similar, 0.7, 0.7, energy=2.0)
+    self.live(self.similar, 0.6, 0.6, energy=1.0, moment=0)
+    self.live(self.similar, 0.7, 0.7, energy=2.0, moment=1)
     self.live(self.base, 0.4, 0.4)
     self.assertEqual(self.birth(self.similar), (0.7, 0.7))
 
@@ -100,7 +100,7 @@ class PullTest(unittest.TestCase):
     for word in ("cat", "cats", "dog"):
       self.memory.lexicon.add(word)
     self.clock = SimpleNamespace(moment=0, ticks=0)
-    self.plane = Plane({"uid": "A", "peak": 4.0, "merge": 0}, Moments(self.clock, 2))
+    self.plane = Plane({"uid": "A", "peak": 4.0}, Moments(self.clock, 2))
 
   def perception(self, word, x, y, energy=1.0, moment=0):
     self.clock.moment = moment
@@ -131,15 +131,10 @@ class PullTest(unittest.TestCase):
     self.perception("cats", 0.7, 0.5, moment=1)
     self.assertEqual(self.memory.pull(cat, self.plane), (0.3, 0.5, 1))
 
-  def test_two_perceptions_of_the_same_word_are_neighbors_without_affinity(self):
-    first = self.perception("cat", 0.3, 0.5)
-    self.perception("cat", 0.7, 0.5)
-    self.assertGreater(self.memory.pull(first, self.plane)[0], 0.3)
-
   def test_a_perception_with_twice_the_energy_moves_half_as_far(self):
     moves = []
     for energy in (1.0, 2.0):
-      plane = Plane({"uid": "B", "peak": 4.0, "merge": 0}, Moments(self.clock, 2))
+      plane = Plane({"uid": "B", "peak": 4.0}, Moments(self.clock, 2))
       plane.receive(token_hash("cat"), 0.3, 0.5, energy)
       plane.receive(token_hash("dog"), 0.7, 0.5, 1.0)
       cat = plane.perceptions[(token_hash("cat"), 0.3, 0.5, 0)]
@@ -171,7 +166,7 @@ class PullTest(unittest.TestCase):
     self.assertEqual(self.memory.pull(cat, self.plane)[2], 1)
     self.perception("dog", 0.5, 0.5)
     self.perception("cats", 0.6, 0.5)
-    self.perception("dog", 0.9, 0.9)
+    self.perception("pig", 0.9, 0.9)
     self.assertEqual(self.memory.pull(cat, self.plane)[2], 3)
 
   def test_the_affinity_comes_from_the_terms_given_to_the_spring_pull(self):
@@ -202,7 +197,7 @@ class PullUsageTest(unittest.TestCase):
     self.memory = Memory(config(rate=0.05))
     self.clock = SimpleNamespace(moment=0, ticks=0)
     self.moments = Moments(self.clock, 2)
-    self.plane = Plane({"uid": "A", "peak": 4.0, "merge": 0}, self.moments)
+    self.plane = Plane({"uid": "A", "peak": 4.0}, self.moments)
 
   def perception(self, word, x, y, energy=1.0, moment=0):
     self.clock.moment = moment

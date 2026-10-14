@@ -20,7 +20,7 @@ class LoadUnitTest(unittest.TestCase):
     self.assertEqual([(cursor.source.uid, cursor.target.uid if cursor.target is not None else None) for cursor in unit.cursors], [("A", "C"), ("A", None), ("A", "D"), ("C", None), ("C", "D"), ("D", None)])
 
   def test_the_unit_is_built_from_the_given_config_file(self):
-    config = {"scheduler": {"tick": 1.0, "budget": 0, "moment": 10}, "random": {"seed": 1}, "memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0, "coexpression": 1.0, "kappa": 1.0, "amplify": 2.0}, "planes": [{"uid": "X", "peak": 1.0, "merge": 0, "relax": None, "transfers": []}, {"uid": "Y", "peak": 2.0, "merge": 0, "relax": None, "transfers": []}]}
+    config = {"scheduler": {"tick": 1.0, "budget": 0, "moment": 10}, "random": {"seed": 1}, "memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "range": 0.5, "rest": 0.03, "far": 0.25, "base": 0.2, "rate": 1.0, "coexpression": 1.0, "kappa": 1.0, "amplify": 2.0}, "planes": [{"uid": "X", "peak": 1.0, "relax": None, "transfers": []}, {"uid": "Y", "peak": 2.0, "relax": None, "transfers": []}]}
     with tempfile.TemporaryDirectory() as folder:
       path = Path(folder) / "config.json"
       path.write_text(json.dumps(config))

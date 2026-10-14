@@ -19,11 +19,6 @@ def validate_plane(entry, path, known):
   peak = entry["peak"]
   if isinstance(peak, bool) or not isinstance(peak, (int, float)) or peak <= 0:
     fail(f"{path}.peak", "must be a number greater than 0")
-  if "merge" not in entry:
-    fail(f"{path}.merge", "missing")
-  merge = entry["merge"]
-  if isinstance(merge, bool) or not isinstance(merge, (int, float)) or merge < 0:
-    fail(f"{path}.merge", "must be a number of at least 0")
   if "relax" not in entry:
     fail(f"{path}.relax", "missing")
   if entry["relax"] not in (None, "shape", "usage"):
