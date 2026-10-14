@@ -1,7 +1,7 @@
 {
   "scheduler": {"tick": 20.0, "budget": 0, "moment": 500},
   "random": {"seed": 1},
-  "input": {"energy": 0.0625},
+  "input": {"energy": 0.25},
   "memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "range": 0.7, "rest": 0.02, "far": 0.2, "base": 0.4, "rate": 0.03, "coexpression": 0, "kappa": 0.5, "amplify": 1.0},
   "planes": [
     {
