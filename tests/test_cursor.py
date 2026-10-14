@@ -12,8 +12,8 @@ from plane import Plane
 
 STILL = 1e-9
 
-def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0, cycle=1000, minimum=0.0):
-  return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact, "cycle": cycle, "minimum": minimum}
+def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0, cycle=1000):
+  return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact, "cycle": cycle}
 
 def make_cursor(x, y, dx, dy, source=None, target=None, generator=None, **settings):
   source = source if source is not None else Plane({"uid": "A", "peak": 10.0}, support.moments())
@@ -96,7 +96,7 @@ class ConfigTest(unittest.TestCase):
         self.assertIn(f"config.{key}", self.rejected(config), repr((key, value)))
 
   def test_the_attraction_the_distance_power_and_the_impact_must_be_numbers_of_at_least_zero(self):
-    for key in ("attraction", "distance_power", "impact", "minimum"):
+    for key in ("attraction", "distance_power", "impact"):
       for value in (-1, "1", None, True):
         config = make_config()
         config[key] = value
@@ -115,7 +115,7 @@ class ConfigTest(unittest.TestCase):
       self.assertIn("config.cycle", self.rejected(config), repr(value))
 
   def test_zero_is_accepted_for_the_settings_that_allow_it(self):
-    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0, minimum=0), Plane({"uid": "A", "peak": 1.0}, support.moments()), Plane({"uid": "C", "peak": 1.0}, support.moments()), Generator(1))
+    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0), Plane({"uid": "A", "peak": 1.0}, support.moments()), Plane({"uid": "C", "peak": 1.0}, support.moments()), Generator(1))
 
 class AdvanceTest(unittest.TestCase):
   def test_the_cursor_moves_along_its_direction_by_the_distance(self):
@@ -610,52 +610,6 @@ class BudgetRunTest(unittest.TestCase):
     self.ticks(5)
     cursor.finish(1)
     self.assertEqual(cursor.moved_tick, 5)
-
-class MinimumTest(unittest.TestCase):
-  def setUp(self):
-    self.source = Plane({"uid": "A", "peak": 10.0}, support.moments())
-
-  def swept(self, energy, minimum, attraction=0.0, y=0.5):
-    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, minimum=minimum, attraction=attraction, step=STILL)
-    cursor.advance(0.5)
-    self.source.receive("first", 0.5, y, energy)
-    self.source.visit(10, cursor.on_visit)
-    return cursor
-
-  def test_a_perception_below_the_minimum_is_not_read(self):
-    cursor = self.swept(0.0625, 0.125)
-    self.assertEqual(cursor.hits, [])
-    self.assertEqual(cursor.finish(1), 0.0)
-    self.assertEqual(self.source.perceptions[("first", 0.5, 0.5, 0)].energy, 0.0625)
-
-  def test_a_perception_at_the_minimum_is_read(self):
-    cursor = self.swept(0.125, 0.125)
-    self.assertEqual(len(cursor.hits), 1)
-
-  def test_a_perception_below_the_minimum_does_not_attract(self):
-    cursor = self.swept(0.0625, 0.125, y=0.75)
-    self.assertEqual((cursor.force_x, cursor.force_y), (0.0, 0.0))
-
-  def test_a_perception_at_the_minimum_attracts(self):
-    cursor = self.swept(0.125, 0.125, y=0.75)
-    self.assertGreater(cursor.force_y, 0.0)
-
-  def test_a_minimum_of_zero_reads_any_perception(self):
-    self.assertEqual(len(self.swept(0.0078125, 0.0).hits), 1)
-
-  def test_a_perception_that_falls_below_the_minimum_by_a_read_is_left_alone_afterwards(self):
-    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, minimum=0.0625, energy=0.0625, step=STILL)
-    self.source.receive("first", 0.5, 0.5, 0.09375)
-    perception = self.source.perceptions[("first", 0.5, 0.5, 0)]
-    cursor.advance(0.5)
-    self.source.visit(10, cursor.on_visit)
-    cursor.finish(1)
-    self.assertEqual(perception.energy, 0.03125)
-    cursor.place(0.25, 0.5, 1.0, 0.0)
-    cursor.advance(0.5)
-    perception.read = False
-    self.source.visit(10, cursor.on_visit)
-    self.assertEqual(cursor.hits, [])
 
 class DrainTest(unittest.TestCase):
   def setUp(self):

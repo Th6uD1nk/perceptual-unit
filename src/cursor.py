@@ -18,7 +18,6 @@ class Cursor:
     self.distance_power = config["distance_power"]
     self.impact = config["impact"]
     self.cycle = config["cycle"]
-    self.minimum = config["minimum"]
     self.cycle_start = 0
     self.moved_tick = 0
     self.scheduler = None
@@ -80,8 +79,6 @@ class Cursor:
   def on_visit(self, perception):
     if perception.read and self.now - perception.read_tick >= self.cooldown:
       perception.read = False
-    if perception.energy < self.minimum:
-      return
     if not perception.read and self.touches(perception):
       self.hits.append(perception)
     if not perception.read:
