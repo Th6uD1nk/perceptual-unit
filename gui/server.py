@@ -15,11 +15,25 @@ CONFIG_PATH = GUI_DIR / "config.json"
 PAGE_PATH = GUI_DIR / "index.html"
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8100
-WORD_ENERGY = 0.0625
 CLOCK_INTERVAL_MS = 20
 
+def read_config(path):
+  return json.loads(Path(path).read_text())
+
+def input_energy(config):
+  section = config.get("input") if isinstance(config, dict) else None
+  if not isinstance(section, dict) or "energy" not in section:
+    raise ValueError("config.input.energy: missing")
+  energy = section["energy"]
+  if isinstance(energy, bool) or not isinstance(energy, (int, float)) or energy <= 0:
+    raise ValueError("config.input.energy: must be a number greater than 0")
+  return energy
+
 def load_unit(path=CONFIG_PATH):
-  return Unit(json.loads(Path(path).read_text()))
+  return Unit(read_config(path))
+
+def load_input_energy(path=CONFIG_PATH):
+  return input_energy(read_config(path))
 
 class Handler(BaseHTTPRequestHandler):
   def do_GET(self):
@@ -42,7 +56,7 @@ class Handler(BaseHTTPRequestHandler):
         raise ValueError("body: must be an object")
       words = tokenize(payload.get("text"))
       with self.server.lock:
-        self.server.unit.feed_flow(words, WORD_ENERGY)
+        self.server.unit.feed_flow(words, self.server.energy)
         state = self.server.unit.state()
     except ValueError as error:
       self.send_json(400, {"error": str(error)})
@@ -79,15 +93,16 @@ def start_clock(server, interval_ms):
   threading.Thread(target=run, daemon=True).start()
   return stop
 
-def make_server(unit, port):
+def make_server(unit, port, energy):
   server = ThreadingHTTPServer((HOST, port), Handler)
   server.unit = unit
+  server.energy = energy
   server.lock = threading.Lock()
   return server
 
 def main(arguments):
   port = int(arguments[0]) if arguments else DEFAULT_PORT
-  server = make_server(load_unit(), port)
+  server = make_server(load_unit(), port, load_input_energy())
   stop_clock = start_clock(server, CLOCK_INTERVAL_MS)
   print(f"Serving the perceptual unit on http://{HOST}:{port}")
   try:

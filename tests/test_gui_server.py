@@ -11,7 +11,7 @@ import support
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "gui"))
 
-from server import PAGE_PATH, WORD_ENERGY, load_unit, make_server, step_clock
+from server import PAGE_PATH, input_energy, load_input_energy, load_unit, make_server, step_clock
 
 class LoadUnitTest(unittest.TestCase):
   def test_the_unit_of_the_gui_has_the_planes_a_and_c_with_a_cursor_to_c_and_a_drain_on_each_plane(self):
@@ -27,9 +27,33 @@ class LoadUnitTest(unittest.TestCase):
       unit = load_unit(path)
     self.assertEqual(list(unit.planes), ["X", "Y"])
 
+class InputEnergyTest(unittest.TestCase):
+  def test_the_gui_config_gives_a_valid_input_energy(self):
+    self.assertGreater(load_input_energy(), 0)
+
+  def test_the_energy_comes_from_the_given_config_file(self):
+    with tempfile.TemporaryDirectory() as folder:
+      path = Path(folder) / "config.json"
+      path.write_text(json.dumps({"input": {"energy": 0.5}}))
+      self.assertEqual(load_input_energy(path), 0.5)
+
+  def test_a_missing_section_or_energy_is_refused(self):
+    for config in ({}, {"input": {}}, {"input": 3}, {"input": None}, []):
+      with self.assertRaises(ValueError, msg=repr(config)) as caught:
+        input_energy(config)
+      self.assertIn("config.input.energy", str(caught.exception))
+
+  def test_an_energy_that_is_not_a_number_greater_than_zero_is_refused(self):
+    for energy in (0, -1, "1", None, True, [1]):
+      with self.assertRaises(ValueError, msg=repr(energy)) as caught:
+        input_energy({"input": {"energy": energy}})
+      self.assertIn("config.input.energy", str(caught.exception))
+
 class ServerTest(unittest.TestCase):
+  ENERGY = 0.125
+
   def setUp(self):
-    self.server = make_server(load_unit(), 0)
+    self.server = make_server(load_unit(), 0, self.ENERGY)
     self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     self.thread.start()
     self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
@@ -61,7 +85,7 @@ class ServerTest(unittest.TestCase):
       self.assertEqual(response.status, 200)
       state = json.loads(response.read())
     energies = sorted(perception["energy"] for perception in state["planes"][0]["perceptions"])
-    self.assertEqual(energies, [WORD_ENERGY, 2 * WORD_ENERGY])
+    self.assertEqual(energies, [self.ENERGY, 2 * self.ENERGY])
     self.assertEqual(state, self.server.unit.state())
 
   def test_an_invalid_body_is_refused_with_a_message_and_nothing_enters_the_unit(self):
@@ -106,8 +130,9 @@ class ServerTest(unittest.TestCase):
 
   def test_the_server_holds_the_unit_it_was_given(self):
     unit = load_unit()
-    server = make_server(unit, 0)
+    server = make_server(unit, 0, 0.5)
     self.assertIs(server.unit, unit)
+    self.assertEqual(server.energy, 0.5)
     server.server_close()
 
 if __name__ == "__main__":
