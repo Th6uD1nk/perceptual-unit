@@ -1,4 +1,5 @@
 import collections
+import math
 
 from perception import Perception
 
@@ -11,6 +12,7 @@ class Plane:
   def __init__(self, config, moments):
     self.uid = config["uid"]
     self.peak = config["peak"]
+    self.merge = config["merge"]
     self.moments = moments
     self.perceptions = {}
     self.by_moment = {}
@@ -22,19 +24,29 @@ class Plane:
 
   def receive(self, hash_, x, y, amount):
     moment = self.moments.current()
-    key = (hash_, x, y, moment)
-    perception = self.perceptions.get(key)
+    perception = self.nearest(hash_, x, y, moment)
     room = self.peak - (perception.energy if perception is not None else 0.0)
     accepted = min(amount, room)
     if accepted <= 0:
       return 0.0
     if perception is None:
+      key = (hash_, x, y, moment)
       perception = self.perceptions[key] = Perception(hash_, x, y, moment, self.moments.ticks)
       self.by_moment.setdefault(moment, {})[key] = perception
       self.by_hash.setdefault(hash_, {})[key] = perception
       self.moments.born(moment)
     perception.energy += accepted
     return accepted
+
+  def nearest(self, hash_, x, y, moment):
+    found, found_distance = None, None
+    for perception in self.by_hash.get(hash_, {}).values():
+      if perception.moment != moment:
+        continue
+      distance = math.hypot(perception.x - x, perception.y - y)
+      if distance <= self.merge and (found is None or distance < found_distance):
+        found, found_distance = perception, distance
+    return found
 
   def move(self, perception, x, y):
     if self.perceptions.get(perception.key) is not perception:

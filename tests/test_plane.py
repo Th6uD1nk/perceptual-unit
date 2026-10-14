@@ -11,8 +11,8 @@ from plane import Plane
 POINT = ("house", 0.25, 0.75)
 KEY = POINT + (0,)
 
-def make_plane(uid="A", peak=10.0, moments=None):
-  return Plane({"uid": uid, "peak": peak}, moments if moments is not None else support.moments())
+def make_plane(uid="A", peak=10.0, moments=None, merge=0):
+  return Plane({"uid": uid, "peak": peak, "merge": merge}, moments if moments is not None else support.moments())
 
 class PlaneTest(unittest.TestCase):
   def test_a_new_plane_holds_no_perception(self):
@@ -226,6 +226,91 @@ class MoveTest(unittest.TestCase):
         self.plane.move(other, 0.25, 0.75)
     self.plane.visit(10, hook)
     self.assertEqual(seen, [KEY])
+
+class MergeTest(unittest.TestCase):
+  def setUp(self):
+    self.clock = SimpleNamespace(moment=0, ticks=0)
+    self.plane = make_plane(peak=4.0, moments=Moments(self.clock, 2), merge=0.1)
+
+  def test_a_deposit_near_a_perception_of_the_same_word_and_moment_joins_it(self):
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.assertEqual(self.plane.receive("house", 0.55, 0.5, 1.0), 1.0)
+    self.assertEqual(len(self.plane.perceptions), 1)
+    self.assertEqual(self.plane.perceptions[("house", 0.5, 0.5, 0)].energy, 2.0)
+
+  def test_the_perception_that_receives_keeps_its_position(self):
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.plane.receive("house", 0.55, 0.52, 1.0)
+    self.assertEqual(list(self.plane.perceptions), [("house", 0.5, 0.5, 0)])
+
+  def test_the_nearest_perception_receives(self):
+    self.plane.receive("house", 0.40, 0.5, 1.0)
+    self.plane.receive("house", 0.60, 0.5, 1.0)
+    self.plane.receive("house", 0.57, 0.5, 1.0)
+    self.assertEqual(self.plane.perceptions[("house", 0.60, 0.5, 0)].energy, 2.0)
+    self.assertEqual(self.plane.perceptions[("house", 0.40, 0.5, 0)].energy, 1.0)
+
+  def test_a_deposit_exactly_at_the_merge_distance_joins(self):
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.plane.receive("house", 0.5, 0.6, 1.0)
+    self.assertEqual(len(self.plane.perceptions), 1)
+
+  def test_a_deposit_beyond_the_merge_distance_makes_a_new_perception(self):
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.plane.receive("house", 0.5, 0.7, 1.0)
+    self.assertEqual(len(self.plane.perceptions), 2)
+
+  def test_a_deposit_of_another_word_does_not_join(self):
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.plane.receive("cat", 0.5, 0.5, 1.0)
+    self.assertEqual(len(self.plane.perceptions), 2)
+
+  def test_a_deposit_of_another_moment_does_not_join(self):
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.clock.moment = 1
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.assertEqual(len(self.plane.perceptions), 2)
+
+  def test_a_merge_distance_of_zero_joins_only_the_exact_position(self):
+    plane = make_plane(peak=4.0, moments=Moments(self.clock, 2), merge=0)
+    self.clock.moment = 0
+    plane.receive("house", 0.5, 0.5, 1.0)
+    plane.receive("house", 0.5, 0.5, 1.0)
+    plane.receive("house", 0.5000001, 0.5, 1.0)
+    self.assertEqual(len(plane.perceptions), 2)
+
+  def test_the_perception_at_the_peak_accepts_nothing_more_and_no_other_one_is_made(self):
+    self.plane.receive("house", 0.5, 0.5, 4.0)
+    self.assertEqual(self.plane.receive("house", 0.55, 0.5, 1.0), 0.0)
+    self.assertEqual(len(self.plane.perceptions), 1)
+
+  def test_a_deposit_larger_than_the_room_fills_the_perception_to_the_peak(self):
+    self.plane.receive("house", 0.5, 0.5, 3.5)
+    self.assertEqual(self.plane.receive("house", 0.55, 0.5, 1.0), 0.5)
+    self.assertEqual(self.plane.perceptions[("house", 0.5, 0.5, 0)].energy, 4.0)
+
+  def test_a_merged_deposit_keeps_the_birth_tick_and_the_count_of_the_moment(self):
+    self.clock.ticks = 12
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.clock.ticks = 30
+    self.plane.receive("house", 0.55, 0.5, 1.0)
+    self.assertEqual(self.plane.perceptions[("house", 0.5, 0.5, 0)].born, 12)
+    self.assertEqual(self.plane.moments.count(0), 1)
+
+  def test_a_transfer_joins_a_perception_of_the_target_near_its_position(self):
+    target = make_plane("C", peak=4.0, moments=self.plane.moments, merge=0.1)
+    target.receive("house", 0.5, 0.5, 1.0)
+    self.plane.receive("house", 0.55, 0.5, 2.0)
+    perception = self.plane.perceptions[("house", 0.55, 0.5, 0)]
+    self.assertEqual(self.plane.transfer(perception, target, 0.5), 0.5)
+    self.assertEqual(len(target.perceptions), 1)
+    self.assertEqual(target.perceptions[("house", 0.5, 0.5, 0)].energy, 1.5)
+    self.assertEqual(perception.energy, 1.5)
+
+  def test_the_index_by_word_stays_consistent_after_merged_deposits(self):
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.plane.receive("house", 0.55, 0.5, 1.0)
+    self.assertEqual([p.x for p in self.plane.living("house")], [0.5])
 
 class BirthTickTest(unittest.TestCase):
   def setUp(self):

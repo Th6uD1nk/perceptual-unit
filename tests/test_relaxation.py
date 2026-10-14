@@ -13,7 +13,7 @@ CONFIG = {"memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "wind
 class RelaxationTest(unittest.TestCase):
   def setUp(self):
     self.memory = Memory(CONFIG)
-    self.plane = Plane({"uid": "A", "peak": 4.0}, support.moments())
+    self.plane = Plane({"uid": "A", "peak": 4.0, "merge": 0}, support.moments())
     self.relaxation = Relaxation(self.memory, self.plane)
 
   def add(self, word, x, y, energy=1.0):
