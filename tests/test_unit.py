@@ -442,6 +442,21 @@ class StateTest(unittest.TestCase):
     unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
     self.assertIsNone(unit.state()["planes"][0]["perceptions"][0]["word"])
 
+  def test_a_perception_in_the_state_is_read_while_a_cursor_is_in_its_cooldown(self):
+    unit = Unit(make_config([entry("A", peak=4.0, transfers=[transfer(None, cooldown=20)])], tick=1.0))
+    unit.planes["A"].receive("house", 0.5, 0.5, 1.0)
+    perception = next(iter(unit.planes["A"].perceptions.values()))
+    perception.reads[unit.cursors[0]] = 0
+    unit.update(19.0)
+    self.assertTrue(unit.state()["planes"][0]["perceptions"][0]["read"])
+    unit.update(1.0)
+    self.assertFalse(unit.state()["planes"][0]["perceptions"][0]["read"])
+
+  def test_a_perception_no_cursor_read_is_not_read_in_the_state(self):
+    unit = Unit(CONFIG)
+    unit.planes["A"].receive("house", 0.25, 0.75, 1.0)
+    self.assertFalse(unit.state()["planes"][0]["perceptions"][0]["read"])
+
   def test_the_state_gives_the_relax_of_each_plane(self):
     unit = Unit(make_config([entry("A", relax="usage"), entry("C", relax="shape"), entry("D")]))
     self.assertEqual([plane["relax"] for plane in unit.state()["planes"]], ["usage", "shape", None])

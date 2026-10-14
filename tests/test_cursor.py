@@ -371,8 +371,7 @@ class CooldownTest(unittest.TestCase):
   def test_a_read_perception_is_marked_with_the_tick_of_its_reading(self):
     self.scheduler.advance(3.0)
     self.sweep()
-    self.assertTrue(self.perception.read)
-    self.assertEqual(self.perception.read_tick, 3)
+    self.assertEqual(self.perception.reads, {self.cursor: 3})
 
   def test_a_read_perception_is_not_touched_again_during_the_cooldown(self):
     self.assertEqual(self.sweep(), 0.0625)
@@ -384,7 +383,7 @@ class CooldownTest(unittest.TestCase):
     self.sweep()
     self.scheduler.advance(2.0)
     self.assertEqual(self.sweep(), 0.0625)
-    self.assertEqual(self.perception.read_tick, 2)
+    self.assertEqual(self.perception.reads[self.cursor], 2)
 
   def test_a_cooldown_of_zero_never_blocks(self):
     cursor = self.make(0)
@@ -396,13 +395,37 @@ class CooldownTest(unittest.TestCase):
     full.receive("first", 0.5, 0.5, 0.0625)
     cursor = self.make(2, full)
     self.assertEqual(self.sweep(cursor), 0.0)
-    self.assertTrue(self.perception.read)
+    self.assertEqual(self.perception.reads, {cursor: 0})
 
-  def test_the_mark_is_shared_between_the_cursors_of_a_plane(self):
+  def test_each_cursor_has_its_own_mark_on_a_perception(self):
     self.sweep()
     other = self.make(2)
     self.scheduler.advance(1.0)
-    self.assertEqual(self.sweep(other), 0.0)
+    self.assertEqual(self.sweep(other), 0.0625)
+    self.assertEqual(set(self.perception.reads), {self.cursor, other})
+
+  def test_a_cursor_with_a_short_cooldown_does_not_rearm_the_perception_for_the_others(self):
+    slow = self.make(10)
+    quick = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, self.target, cooldown=1, energy=0.001)
+    quick.scheduler = self.scheduler
+    self.sweep(slow)
+    for _ in range(4):
+      self.scheduler.advance(2.0)
+      self.sweep(quick)
+      self.assertEqual(self.sweep(slow), 0.0)
+    self.scheduler.advance(2.0)
+    self.assertGreater(self.sweep(slow), 0.0)
+
+  def test_the_marks_of_the_other_cursors_do_not_block_a_cursor_that_never_read_the_perception(self):
+    first = self.make(100)
+    self.sweep(first)
+    self.assertEqual(self.sweep(self.make(100)), 0.0625)
+
+  def test_the_marks_live_and_die_with_the_perception(self):
+    self.sweep()
+    self.source.remove(self.perception)
+    self.source.receive("first", 0.5, 0.5, 0.125)
+    self.assertEqual(self.source.perceptions[("first", 0.5, 0.5, 0)].reads, {})
 
 class AttractionTest(unittest.TestCase):
   def setUp(self):
@@ -446,7 +469,8 @@ class AttractionTest(unittest.TestCase):
   def test_a_perception_that_is_blocked_for_reading_exerts_no_attraction(self):
     cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, attraction=1.0, cooldown=5, step=STILL)
     self.source.receive("p", 0.5, 0.75, 0.0625)
-    self.source.perceptions[("p", 0.5, 0.75, 0)].read = True
+    self.source.perceptions[("p", 0.5, 0.75, 0)].reads[cursor] = 0
+    cursor.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0, "moment": 1000}})
     self.source.visit(10, cursor.on_visit)
     cursor.finish(1)
     self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
@@ -454,7 +478,7 @@ class AttractionTest(unittest.TestCase):
   def test_a_perception_attracts_again_once_its_cooldown_is_over(self):
     cursor = make_cursor(0.5, 0.5, 1.0, 0.0, self.source, attraction=1.0, cooldown=0, step=STILL)
     self.source.receive("p", 0.5, 0.75, 0.0625)
-    self.source.perceptions[("p", 0.5, 0.75, 0)].read = True
+    self.source.perceptions[("p", 0.5, 0.75, 0)].reads[cursor] = 0
     self.source.visit(10, cursor.on_visit)
     cursor.finish(1)
     self.assertGreater(cursor.dy, 0.0)
@@ -651,7 +675,7 @@ class MinimumAgeTest(unittest.TestCase):
     cursor = self.swept(10, 3)
     cursor.finish(1)
     perception = self.source.perceptions[("first", 0.5, 0.5, 0)]
-    self.assertFalse(perception.read)
+    self.assertEqual(perception.reads, {})
     self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
 
   def test_a_perception_too_young_still_attracts_the_cursor(self):

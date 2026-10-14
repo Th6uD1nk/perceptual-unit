@@ -7,8 +7,8 @@ class PerceptionTest(unittest.TestCase):
   def test_a_perception_starts_without_energy(self):
     self.assertEqual(Perception("house", 0.25, 0.75, 0).energy, 0.0)
 
-  def test_a_perception_is_not_read_at_birth(self):
-    self.assertFalse(Perception("house", 0.25, 0.75, 0).read)
+  def test_a_perception_is_read_by_no_cursor_at_birth(self):
+    self.assertEqual(Perception("house", 0.25, 0.75, 0).reads, {})
 
   def test_the_key_is_the_triplet_of_the_hash_and_the_position(self):
     self.assertEqual(Perception("house", 0.25, 0.75, 0).key, ("house", 0.25, 0.75, 0))
@@ -50,17 +50,17 @@ class AgeTest(unittest.TestCase):
     self.assertEqual(young.state(), old.state())
 
 class StateTest(unittest.TestCase):
-  def test_the_state_gives_the_hash_the_position_the_moment_the_energy_and_the_read_flag(self):
+  def test_the_state_gives_the_hash_the_position_the_moment_and_the_energy(self):
     perception = Perception("house", 0.25, 0.75, 3)
     perception.energy = 0.5
-    self.assertEqual(perception.state(), {"hash": "house", "x": 0.25, "y": 0.75, "moment": 3, "energy": 0.5, "read": False})
+    self.assertEqual(perception.state(), {"hash": "house", "x": 0.25, "y": 0.75, "moment": 3, "energy": 0.5})
 
   def test_the_state_follows_the_changes_of_the_perception(self):
     perception = Perception("house", 0.25, 0.75, 0)
     perception.energy = 0.125
-    perception.read = True
+    perception.x = 0.5
     self.assertEqual(perception.state()["energy"], 0.125)
-    self.assertTrue(perception.state()["read"])
+    self.assertEqual(perception.state()["x"], 0.5)
 
   def test_changing_the_state_does_not_change_the_perception(self):
     perception = Perception("house", 0.25, 0.75, 0)

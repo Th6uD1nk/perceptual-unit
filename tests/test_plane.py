@@ -719,7 +719,7 @@ class StateTest(unittest.TestCase):
     plane.receive("cat", 0.5, 0.5, 2.0)
     perceptions = plane.state()["perceptions"]
     self.assertEqual([entry["hash"] for entry in perceptions], ["house", "cat"])
-    self.assertEqual(perceptions[1], {"hash": "cat", "x": 0.5, "y": 0.5, "moment": 0, "energy": 2.0, "read": False})
+    self.assertEqual(perceptions[1], {"hash": "cat", "x": 0.5, "y": 0.5, "moment": 0, "energy": 2.0})
 
   def test_a_perception_that_left_the_plane_is_no_longer_in_the_state(self):
     plane = make_plane()

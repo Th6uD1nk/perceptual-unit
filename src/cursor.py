@@ -78,12 +78,15 @@ class Cursor:
     return self.scheduler.ticks if self.scheduler is not None else 0
 
   def on_visit(self, perception):
-    if perception.read and self.now - perception.read_tick >= self.cooldown:
-      perception.read = False
-    if not perception.read and self.touches(perception) and self.mature(perception):
+    rested = self.rested(perception)
+    if rested and self.touches(perception) and self.mature(perception):
       self.hits.append(perception)
-    if not perception.read:
+    if rested:
       self.attract(perception)
+
+  def rested(self, perception):
+    last = perception.reads.get(self)
+    return last is None or self.now - last >= self.cooldown
 
   def mature(self, perception):
     return not self.minimum_age or perception.age(self.now) >= self.minimum_age
@@ -141,8 +144,7 @@ class Cursor:
         continue
       before = perception.energy
       transferred += self.source.transfer(perception, self.target, self.energy)
-      perception.read = True
-      perception.read_tick = self.now
+      perception.reads[self] = self.now
       self.deflect(perception, before)
     self.hits = []
     self.turn(elapsed)

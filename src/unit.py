@@ -78,8 +78,10 @@ class Unit:
   def plane_state(self, plane):
     state = plane.state()
     state["relax"] = self.relax[plane.uid]
-    for entry in state["perceptions"]:
+    ticks = self.ticks
+    for entry, perception in zip(state["perceptions"], plane.perceptions.values()):
       entry["word"] = self.memory.lexicon.word(entry["hash"])
+      entry["read"] = any(ticks - tick < cursor.cooldown for cursor, tick in perception.reads.items())
     return state
 
   def state(self):
