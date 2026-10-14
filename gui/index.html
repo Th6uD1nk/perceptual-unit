@@ -11,28 +11,30 @@
     </div>
     <div>moment <span id="moment"></span></div>
     <table>
-      <tr>
-        <td id="title-a"></td>
-        <td id="title-c"></td>
-      </tr>
-      <tr>
-        <td><canvas id="plane-a" width="400" height="400"></canvas></td>
-        <td><canvas id="plane-c" width="400" height="400"></canvas></td>
-      </tr>
+      <tr id="titles"></tr>
+      <tr id="canvases"></tr>
     </table>
     <script>
       const field = document.getElementById("token");
       const button = document.getElementById("send");
       const momentLabel = document.getElementById("moment");
-      const canvasA = document.getElementById("plane-a");
-      const canvasC = document.getElementById("plane-c");
-      const titleA = document.getElementById("title-a");
-      const titleC = document.getElementById("title-c");
+      const titles = document.getElementById("titles");
+      const canvases = document.getElementById("canvases");
+      const views = {};
 
-      function planeOf(state, uid) {
-        return state.planes.find(function (plane) {
-          return plane.uid === uid;
-        });
+      function viewOf(uid) {
+        if (!views[uid]) {
+          const title = document.createElement("td");
+          const cell = document.createElement("td");
+          const canvas = document.createElement("canvas");
+          canvas.width = 400;
+          canvas.height = 400;
+          cell.appendChild(canvas);
+          titles.appendChild(title);
+          canvases.appendChild(cell);
+          views[uid] = {title: title, canvas: canvas};
+        }
+        return views[uid];
       }
 
       function titleOf(plane) {
@@ -88,12 +90,11 @@
 
       function draw(state) {
         momentLabel.textContent = state.moment;
-        const planeA = planeOf(state, "A");
-        const planeC = planeOf(state, "C");
-        titleA.textContent = titleOf(planeA);
-        titleC.textContent = titleOf(planeC);
-        drawPlane(canvasA, planeA, state.cursors);
-        drawPlane(canvasC, planeC, state.cursors);
+        state.planes.forEach(function (plane) {
+          const view = viewOf(plane.uid);
+          view.title.textContent = titleOf(plane);
+          drawPlane(view.canvas, plane, state.cursors);
+        });
       }
 
       async function refresh() {
