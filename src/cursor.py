@@ -17,6 +17,7 @@ class Cursor:
     self.attraction = config["attraction"]
     self.distance_power = config["distance_power"]
     self.impact = config["impact"]
+    self.minimum_age = config["minimum_age"]
     self.cycle = config["cycle"]
     self.cycle_start = 0
     self.moved_tick = 0
@@ -79,10 +80,13 @@ class Cursor:
   def on_visit(self, perception):
     if perception.read and self.now - perception.read_tick >= self.cooldown:
       perception.read = False
-    if not perception.read and self.touches(perception):
+    if not perception.read and self.touches(perception) and self.mature(perception):
       self.hits.append(perception)
     if not perception.read:
       self.attract(perception)
+
+  def mature(self, perception):
+    return not self.minimum_age or perception.age(self.now) >= self.minimum_age
 
   def attract(self, perception):
     dx, dy = perception.x - self.x, perception.y - self.y

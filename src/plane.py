@@ -29,7 +29,7 @@ class Plane:
     if accepted <= 0:
       return 0.0
     if perception is None:
-      perception = self.perceptions[key] = Perception(hash_, x, y, moment)
+      perception = self.perceptions[key] = Perception(hash_, x, y, moment, self.moments.ticks)
       self.by_moment.setdefault(moment, {})[key] = perception
       self.by_hash.setdefault(hash_, {})[key] = perception
       self.moments.born(moment)

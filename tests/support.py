@@ -8,4 +8,4 @@ from types import SimpleNamespace
 from moments import Moments
 
 def moments(moment=0, window=2):
-  return Moments(SimpleNamespace(moment=moment), window)
+  return Moments(SimpleNamespace(moment=moment, ticks=0), window)

@@ -98,7 +98,7 @@ class PeakTest(unittest.TestCase):
 
 class MomentTest(unittest.TestCase):
   def setUp(self):
-    self.clock = SimpleNamespace(moment=0)
+    self.clock = SimpleNamespace(moment=0, ticks=0)
     self.moments = Moments(self.clock, 2)
     self.plane = make_plane(moments=self.moments)
 
@@ -125,7 +125,7 @@ class MomentTest(unittest.TestCase):
 
 class CountTest(unittest.TestCase):
   def setUp(self):
-    self.clock = SimpleNamespace(moment=0)
+    self.clock = SimpleNamespace(moment=0, ticks=0)
     self.moments = Moments(self.clock, 2)
     self.plane = make_plane(moments=self.moments)
 
@@ -161,7 +161,7 @@ class CountTest(unittest.TestCase):
 
 class MoveTest(unittest.TestCase):
   def setUp(self):
-    self.clock = SimpleNamespace(moment=0)
+    self.clock = SimpleNamespace(moment=0, ticks=0)
     self.moments = Moments(self.clock, 2)
     self.plane = make_plane(peak=4.0, moments=self.moments)
     self.plane.receive(*POINT, 1.0)
@@ -227,9 +227,51 @@ class MoveTest(unittest.TestCase):
     self.plane.visit(10, hook)
     self.assertEqual(seen, [KEY])
 
+class BirthTickTest(unittest.TestCase):
+  def setUp(self):
+    self.clock = SimpleNamespace(moment=0, ticks=0)
+    self.plane = make_plane(peak=4.0, moments=Moments(self.clock, 2))
+
+  def test_a_perception_is_born_at_the_tick_of_its_first_reception(self):
+    self.clock.ticks = 12
+    self.plane.receive(*POINT, 1.0)
+    self.assertEqual(self.plane.perceptions[KEY].born, 12)
+
+  def test_a_reinforcement_keeps_the_birth_tick(self):
+    self.clock.ticks = 12
+    self.plane.receive(*POINT, 1.0)
+    self.clock.ticks = 30
+    self.plane.receive(*POINT, 1.0)
+    self.assertEqual(self.plane.perceptions[KEY].born, 12)
+
+  def test_a_move_keeps_the_birth_tick(self):
+    self.clock.ticks = 12
+    self.plane.receive(*POINT, 1.0)
+    perception = self.plane.perceptions[KEY]
+    self.clock.ticks = 30
+    self.plane.move(perception, 0.5, 0.5)
+    self.assertEqual(perception.born, 12)
+
+  def test_a_merge_keeps_the_birth_tick_of_the_perception_already_there(self):
+    self.clock.ticks = 12
+    self.plane.receive("house", 0.5, 0.5, 1.0)
+    self.clock.ticks = 30
+    self.plane.receive("house", 0.25, 0.75, 1.0)
+    merged = self.plane.move(self.plane.perceptions[("house", 0.25, 0.75, 0)], 0.5, 0.5)
+    self.assertEqual(merged.born, 12)
+
+  def test_a_transfer_creates_a_new_perception_in_the_target_born_at_the_tick_of_the_transfer(self):
+    target = make_plane("C", peak=4.0, moments=self.plane.moments)
+    self.clock.ticks = 12
+    self.plane.receive(*POINT, 1.0)
+    self.clock.ticks = 30
+    self.plane.transfer(self.plane.perceptions[KEY], target, 0.5)
+    self.assertEqual(self.plane.perceptions[KEY].born, 12)
+    self.assertEqual(target.perceptions[KEY].born, 30)
+
 class MomentIndexTest(unittest.TestCase):
   def setUp(self):
-    self.clock = SimpleNamespace(moment=0)
+    self.clock = SimpleNamespace(moment=0, ticks=0)
     self.plane = make_plane(peak=4.0, moments=Moments(self.clock, 2))
 
   def test_the_perceptions_of_a_moment_are_listed_without_those_of_the_others(self):

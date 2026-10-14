@@ -1,7 +1,7 @@
 class Perception:
-  __slots__ = ("hash", "x", "y", "moment", "energy", "read", "read_tick")
+  __slots__ = ("hash", "x", "y", "moment", "energy", "read", "read_tick", "born")
 
-  def __init__(self, hash_, x, y, moment):
+  def __init__(self, hash_, x, y, moment, born=0):
     self.hash = hash_
     self.x = x
     self.y = y
@@ -9,10 +9,14 @@ class Perception:
     self.energy = 0.0
     self.read = False
     self.read_tick = 0
+    self.born = born
 
   @property
   def key(self):
     return (self.hash, self.x, self.y, self.moment)
+
+  def age(self, ticks):
+    return ticks - self.born
 
   def state(self):
     return {"hash": self.hash, "x": self.x, "y": self.y, "moment": self.moment, "energy": self.energy, "read": self.read}

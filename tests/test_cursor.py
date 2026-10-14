@@ -7,13 +7,14 @@ from scheduler import Scheduler
 from validation import validate_cursor
 from cursor import Cursor
 from generator import Generator
+from moments import Moments
 from perception import Perception
 from plane import Plane
 
 STILL = 1e-9
 
-def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0, cycle=1000):
-  return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact, "cycle": cycle}
+def make_config(energy=0.0625, step=0.25, cooldown=0, attraction=0.0, distance_power=2.0, impact=0.0, cycle=1000, minimum_age=0):
+  return {"energy": energy, "step": step, "cooldown": cooldown, "attraction": attraction, "distance_power": distance_power, "impact": impact, "cycle": cycle, "minimum_age": minimum_age}
 
 def make_cursor(x, y, dx, dy, source=None, target=None, generator=None, **settings):
   source = source if source is not None else Plane({"uid": "A", "peak": 10.0}, support.moments())
@@ -108,6 +109,12 @@ class ConfigTest(unittest.TestCase):
       config["cooldown"] = value
       self.assertIn("config.cooldown", self.rejected(config), repr(value))
 
+  def test_the_minimum_age_must_be_an_integer_of_at_least_zero(self):
+    for value in (-1, 1.5, "2", True, None):
+      config = make_config()
+      config["minimum_age"] = value
+      self.assertIn("config.minimum_age", self.rejected(config), repr(value))
+
   def test_the_cycle_must_be_an_integer_of_at_least_one(self):
     for value in (0, -1, 1.5, "3", True, None):
       config = make_config()
@@ -115,7 +122,7 @@ class ConfigTest(unittest.TestCase):
       self.assertIn("config.cycle", self.rejected(config), repr(value))
 
   def test_zero_is_accepted_for_the_settings_that_allow_it(self):
-    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0), Plane({"uid": "A", "peak": 1.0}, support.moments()), Plane({"uid": "C", "peak": 1.0}, support.moments()), Generator(1))
+    Cursor(make_config(attraction=0, distance_power=0, impact=0, cooldown=0, minimum_age=0), Plane({"uid": "A", "peak": 1.0}, support.moments()), Plane({"uid": "C", "peak": 1.0}, support.moments()), Generator(1))
 
 class AdvanceTest(unittest.TestCase):
   def test_the_cursor_moves_along_its_direction_by_the_distance(self):
@@ -610,6 +617,55 @@ class BudgetRunTest(unittest.TestCase):
     self.ticks(5)
     cursor.finish(1)
     self.assertEqual(cursor.moved_tick, 5)
+
+class MinimumAgeTest(unittest.TestCase):
+  def setUp(self):
+    self.scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0, "moment": 1000}})
+    self.source = Plane({"uid": "A", "peak": 10.0}, Moments(self.scheduler, 2))
+
+  def swept(self, minimum_age, ticks, attraction=0.0, y=0.5):
+    cursor = make_cursor(0.25, 0.5, 1.0, 0.0, self.source, minimum_age=minimum_age, attraction=attraction, step=STILL)
+    cursor.scheduler = self.scheduler
+    self.source.receive("first", 0.5, y, 0.125)
+    self.scheduler.advance(ticks)
+    cursor.advance(0.5)
+    self.source.visit(10, cursor.on_visit)
+    return cursor
+
+  def test_a_perception_younger_than_the_minimum_age_is_not_read(self):
+    cursor = self.swept(10, 9)
+    self.assertEqual(cursor.hits, [])
+    self.assertEqual(cursor.finish(1), 0.0)
+    self.assertEqual(self.source.perceptions[("first", 0.5, 0.5, 0)].energy, 0.125)
+
+  def test_a_perception_of_exactly_the_minimum_age_is_read(self):
+    self.assertEqual(len(self.swept(10, 10).hits), 1)
+
+  def test_a_perception_older_than_the_minimum_age_is_read(self):
+    self.assertEqual(len(self.swept(10, 50).hits), 1)
+
+  def test_a_minimum_age_of_zero_reads_a_perception_of_any_age(self):
+    self.assertEqual(len(self.swept(0, 0).hits), 1)
+
+  def test_a_perception_too_young_is_not_marked_read_and_does_not_deflect_the_cursor(self):
+    cursor = self.swept(10, 3)
+    cursor.finish(1)
+    perception = self.source.perceptions[("first", 0.5, 0.5, 0)]
+    self.assertFalse(perception.read)
+    self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
+
+  def test_a_perception_too_young_still_attracts_the_cursor(self):
+    cursor = self.swept(10, 3, attraction=1.0, y=0.75)
+    self.assertGreater(cursor.force_y, 0.0)
+
+  def test_a_perception_becomes_readable_when_it_has_lived_long_enough(self):
+    cursor = self.swept(10, 3)
+    self.assertEqual(cursor.hits, [])
+    self.scheduler.advance(7.0)
+    cursor.place(0.25, 0.5, 1.0, 0.0)
+    cursor.advance(0.5)
+    self.source.visit(10, cursor.on_visit)
+    self.assertEqual(len(cursor.hits), 1)
 
 class DrainTest(unittest.TestCase):
   def setUp(self):

@@ -156,7 +156,7 @@ def validate_cursor(config, path="config"):
     value = config[key]
     if isinstance(value, bool) or not isinstance(value, (int, float)) or (value <= 0 if strict else value < 0):
       fail(f"{path}.{key}", "must be a number greater than 0" if strict else "must be a number of at least 0")
-  for key, minimum in (("cooldown", 0), ("cycle", 1)):
+  for key, minimum in (("cooldown", 0), ("minimum_age", 0), ("cycle", 1)):
     if key not in config:
       fail(f"{path}.{key}", "missing")
     value = config[key]

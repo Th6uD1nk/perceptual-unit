@@ -8,6 +8,10 @@ class Moments:
     self.totals = {}
     self.link_totals = {}
 
+  @property
+  def ticks(self):
+    return self.scheduler.ticks
+
   def current(self):
     moment = self.scheduler.moment
     if moment != self.seen:

@@ -24,7 +24,7 @@ def central_word():
 class BirthTest(unittest.TestCase):
   def setUp(self):
     self.memory = Memory(CONFIG)
-    self.clock = SimpleNamespace(moment=0)
+    self.clock = SimpleNamespace(moment=0, ticks=0)
     self.plane = Plane({"uid": "A", "peak": 4.0}, Moments(self.clock, 2))
     self.base = central_word()
     self.similar = self.base + "s"
@@ -99,7 +99,7 @@ class PullTest(unittest.TestCase):
     self.memory = Memory(CONFIG)
     for word in ("cat", "cats", "dog"):
       self.memory.lexicon.add(word)
-    self.clock = SimpleNamespace(moment=0)
+    self.clock = SimpleNamespace(moment=0, ticks=0)
     self.plane = Plane({"uid": "A", "peak": 4.0}, Moments(self.clock, 2))
 
   def perception(self, word, x, y, energy=1.0, moment=0):
@@ -200,7 +200,7 @@ class PullTest(unittest.TestCase):
 class PullUsageTest(unittest.TestCase):
   def setUp(self):
     self.memory = Memory(config(rate=0.05))
-    self.clock = SimpleNamespace(moment=0)
+    self.clock = SimpleNamespace(moment=0, ticks=0)
     self.moments = Moments(self.clock, 2)
     self.plane = Plane({"uid": "A", "peak": 4.0}, self.moments)
 

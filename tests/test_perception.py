@@ -30,7 +30,24 @@ class PerceptionTest(unittest.TestCase):
 
   def test_a_perception_holds_nothing_else(self):
     with self.assertRaises(AttributeError):
-      Perception("house", 0.1, 0.1, 0).age = 3
+      Perception("house", 0.1, 0.1, 0).other = 3
+
+class AgeTest(unittest.TestCase):
+  def test_a_perception_is_born_at_tick_zero_by_default(self):
+    self.assertEqual(Perception("house", 0.25, 0.75, 0).born, 0)
+
+  def test_the_birth_tick_is_the_one_given(self):
+    self.assertEqual(Perception("house", 0.25, 0.75, 0, 40).born, 40)
+
+  def test_the_age_is_the_number_of_ticks_since_the_birth(self):
+    perception = Perception("house", 0.25, 0.75, 0, 40)
+    self.assertEqual(perception.age(40), 0)
+    self.assertEqual(perception.age(65), 25)
+
+  def test_the_birth_tick_does_not_change_the_key_nor_the_state(self):
+    young, old = Perception("house", 0.25, 0.75, 0, 40), Perception("house", 0.25, 0.75, 0, 0)
+    self.assertEqual(young.key, old.key)
+    self.assertEqual(young.state(), old.state())
 
 class StateTest(unittest.TestCase):
   def test_the_state_gives_the_hash_the_position_the_moment_the_energy_and_the_read_flag(self):

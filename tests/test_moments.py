@@ -12,6 +12,14 @@ class CurrentTest(unittest.TestCase):
     scheduler.advance(2.0)
     self.assertEqual(moments.current(), 1)
 
+class TicksTest(unittest.TestCase):
+  def test_the_ticks_follow_the_scheduler(self):
+    scheduler = Scheduler({"scheduler": {"tick": 1.0, "budget": 0, "moment": 100}})
+    moments = Moments(scheduler, 2)
+    self.assertEqual(moments.ticks, 0)
+    scheduler.advance(7.0)
+    self.assertEqual(moments.ticks, 7)
+
 class CountTest(unittest.TestCase):
   def setUp(self):
     self.moments = support.moments()
