@@ -79,9 +79,11 @@ class Unit:
     state = plane.state()
     state["relax"] = self.relax[plane.uid]
     ticks = self.ticks
+    sources = [(index, cursor) for index, cursor in enumerate(self.cursors) if cursor.source is plane]
     for entry, perception in zip(state["perceptions"], plane.perceptions.values()):
       entry["word"] = self.memory.lexicon.word(entry["hash"])
       entry["read"] = any(ticks - tick < cursor.cooldown for cursor, tick in perception.reads.items())
+      entry["locked"] = [index for index, cursor in sources if not cursor.rested(perception) or not cursor.mature(perception)]
     return state
 
   def state(self):

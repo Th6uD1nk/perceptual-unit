@@ -451,6 +451,30 @@ class StateTest(unittest.TestCase):
     unit.update(1.0)
     self.assertFalse(unit.state()["planes"][0]["perceptions"][0]["read"])
 
+  def locked_unit(self):
+    unit = Unit(make_config([entry("A", peak=4.0, transfers=[transfer(None, cooldown=20), transfer(None, cooldown=50, minimum_age=30)]), entry("C")], tick=1.0))
+    unit.planes["A"].receive("house", 0.5, 0.5, 1.0)
+    return unit, next(iter(unit.planes["A"].perceptions.values()))
+
+  def test_the_state_lists_the_cursors_that_are_locked_on_a_perception_by_their_index(self):
+    unit, perception = self.locked_unit()
+    perception.reads[unit.cursors[0]] = 0
+    unit.update(10.0)
+    self.assertEqual(unit.state()["planes"][0]["perceptions"][0]["locked"], [0, 1])
+    unit.update(20.0)
+    self.assertEqual(unit.state()["planes"][0]["perceptions"][0]["locked"], [])
+
+  def test_a_cursor_for_which_the_perception_is_too_young_is_locked(self):
+    unit, perception = self.locked_unit()
+    unit.update(5.0)
+    self.assertEqual(unit.state()["planes"][0]["perceptions"][0]["locked"], [1])
+
+  def test_the_state_lists_only_the_cursors_of_the_plane_of_the_perception(self):
+    unit = Unit(make_config([entry("A", transfers=[transfer("C", cooldown=20)]), entry("C", peak=4.0, transfers=[transfer(None, cooldown=20)])], tick=1.0))
+    unit.planes["C"].receive("house", 0.5, 0.5, 1.0)
+    next(iter(unit.planes["C"].perceptions.values())).reads[unit.cursors[1]] = 0
+    self.assertEqual(unit.state()["planes"][1]["perceptions"][0]["locked"], [1])
+
   def test_a_perception_no_cursor_read_is_not_read_in_the_state(self):
     unit = Unit(CONFIG)
     unit.planes["A"].receive("house", 0.25, 0.75, 1.0)

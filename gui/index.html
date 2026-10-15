@@ -59,6 +59,14 @@
         context.strokeStyle = "hsla(" + hue + ", 70%, 40%, 0.8)";
         context.lineWidth = 1;
         context.stroke();
+        const locked = perception.locked || [];
+        locked.forEach(function (index, position) {
+          const angle = index * 2.399963;
+          context.fillStyle = cursorColor(index);
+          context.beginPath();
+          context.arc(perception.x * canvas.width + Math.cos(angle) * Math.max(radius, 4), perception.y * canvas.height + Math.sin(angle) * Math.max(radius, 4), 2.5, 0, 2 * Math.PI);
+          context.fill();
+        });
         if (perception.word) {
           context.fillStyle = "black";
           context.fillText(perception.word, perception.x * canvas.width + 4, perception.y * canvas.height);
