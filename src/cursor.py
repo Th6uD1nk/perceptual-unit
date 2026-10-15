@@ -80,11 +80,11 @@ class Cursor:
     return self.scheduler.ticks if self.scheduler is not None else 0
 
   def on_visit(self, perception):
-    rested = self.rested(perception)
-    if rested and self.touches(perception) and self.mature(perception):
+    if not self.rested(perception) or not self.mature(perception):
+      return
+    if self.touches(perception):
       self.hits.append(perception)
-    if rested:
-      self.attract(perception)
+    self.attract(perception)
 
   def rested(self, perception):
     last = perception.reads.get(self)

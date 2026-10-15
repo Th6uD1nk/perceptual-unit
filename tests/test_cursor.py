@@ -687,8 +687,12 @@ class MinimumAgeTest(unittest.TestCase):
     self.assertEqual(perception.reads, {})
     self.assertEqual((cursor.dx, cursor.dy), (1.0, 0.0))
 
-  def test_a_perception_too_young_still_attracts_the_cursor(self):
+  def test_a_perception_too_young_does_not_attract_the_cursor_either(self):
     cursor = self.swept(10, 3, attraction=1.0, y=0.75)
+    self.assertEqual((cursor.force_x, cursor.force_y), (0.0, 0.0))
+
+  def test_a_perception_old_enough_attracts_the_cursor(self):
+    cursor = self.swept(10, 10, attraction=1.0, y=0.75)
     self.assertGreater(cursor.force_y, 0.0)
 
   def test_a_perception_becomes_readable_when_it_has_lived_long_enough(self):
