@@ -69,7 +69,9 @@ class Cursor:
       return False
     start_x, start_y, end_x, end_y = self.segment
     radius = perception.energy
-    if math.hypot(start_x - perception.x, start_y - perception.y) <= radius:
+    start_inside = math.hypot(start_x - perception.x, start_y - perception.y) <= radius
+    end_inside = math.hypot(end_x - perception.x, end_y - perception.y) <= radius
+    if start_inside and end_inside:
       return False
     return distance_to_segment(perception.x, perception.y, start_x, start_y, end_x, end_y) <= radius
 

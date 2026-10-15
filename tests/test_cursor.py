@@ -209,8 +209,17 @@ class CollisionTest(unittest.TestCase):
     for x, y, energy in cases:
       self.assertFalse(cursor.touches(perception(x, y, energy)), msg=repr((x, y, energy)))
 
-  def test_a_perception_that_already_contains_the_start_is_not_touched(self):
-    self.assertFalse(moved_cursor().touches(perception(0.25, 0.5, 0.125)))
+  def test_a_perception_that_contains_the_start_but_not_the_end_is_touched_by_the_one_intersection_of_the_exit(self):
+    self.assertTrue(moved_cursor().touches(perception(0.25, 0.5, 0.125)))
+
+  def test_a_perception_that_contains_the_end_but_not_the_start_is_touched_by_the_one_intersection_of_the_entry(self):
+    self.assertTrue(moved_cursor().touches(perception(0.75, 0.5, 0.125)))
+
+  def test_a_perception_that_contains_both_ends_is_not_touched_because_the_segment_never_meets_its_circle(self):
+    self.assertFalse(moved_cursor().touches(perception(0.5, 0.5, 0.5)))
+
+  def test_a_perception_crossed_through_has_two_intersections_and_is_touched(self):
+    self.assertTrue(moved_cursor().touches(perception(0.5, 0.5, 0.125)))
 
   def test_a_perception_without_energy_is_not_touched(self):
     self.assertFalse(moved_cursor().touches(perception(0.5, 0.5, 0.0)))

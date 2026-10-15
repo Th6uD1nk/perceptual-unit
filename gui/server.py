@@ -47,6 +47,12 @@ class Handler(BaseHTTPRequestHandler):
       self.send_error(404)
 
   def do_POST(self):
+    if self.path == "/api/reset":
+      with self.server.lock:
+        self.server.unit = Unit(self.server.unit.config)
+        state = self.server.unit.state()
+      self.send_json(200, state)
+      return
     if self.path != "/api/text":
       self.send_error(404)
       return

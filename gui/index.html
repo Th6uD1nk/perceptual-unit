@@ -8,6 +8,7 @@
     <div>
       <input id="token" type="text" autocomplete="off" placeholder="text">
       <button id="send">Send</button>
+      <button id="reset">Reset</button>
     </div>
     <div>moment <span id="moment"></span></div>
     <table>
@@ -17,6 +18,7 @@
     <script>
       const field = document.getElementById("token");
       const button = document.getElementById("send");
+      const resetButton = document.getElementById("reset");
       const momentLabel = document.getElementById("moment");
       const titles = document.getElementById("titles");
       const canvases = document.getElementById("canvases");
@@ -48,19 +50,27 @@
       }
 
       function drawPerception(context, canvas, plane, perception) {
-        const radius = Math.max(1, perception.energy / plane.peak * canvas.width * 0.05);
+        const radius = perception.energy * canvas.width;
+        const hue = (perception.moment * 67) % 360;
         context.beginPath();
-        context.arc(perception.x * canvas.width, perception.y * canvas.height, radius, 0, 2 * Math.PI);
-        context.fillStyle = "hsla(" + (perception.moment * 67) % 360 + ", 70%, 60%, " + (perception.read ? 0.12 : 0.35) + ")";
+        context.arc(perception.x * canvas.width, perception.y * canvas.height, Math.max(radius, 0.5), 0, 2 * Math.PI);
+        context.fillStyle = "hsla(" + hue + ", 70%, 60%, " + (perception.read ? 0.12 : 0.35) + ")";
         context.fill();
+        context.strokeStyle = "hsla(" + hue + ", 70%, 40%, 0.8)";
+        context.lineWidth = 1;
+        context.stroke();
         if (perception.word) {
           context.fillStyle = "black";
-          context.fillText(perception.word, perception.x * canvas.width + radius + 2, perception.y * canvas.height);
+          context.fillText(perception.word, perception.x * canvas.width + 4, perception.y * canvas.height);
         }
       }
 
-      function drawCursor(context, canvas, cursor) {
-        context.strokeStyle = "navy";
+      function cursorColor(index) {
+        return "hsl(" + (index * 137.5) % 360 + ", 85%, 38%)";
+      }
+
+      function drawCursor(context, canvas, cursor, index) {
+        context.strokeStyle = cursorColor(index);
         context.lineWidth = 1;
         if (cursor.segment) {
           context.beginPath();
@@ -68,7 +78,7 @@
           context.lineTo(cursor.segment[2] * canvas.width, cursor.segment[3] * canvas.height);
           context.stroke();
         }
-        context.fillStyle = "navy";
+        context.fillStyle = cursorColor(index);
         context.beginPath();
         context.arc(cursor.x * canvas.width, cursor.y * canvas.height, 3, 0, 2 * Math.PI);
         context.fill();
@@ -81,10 +91,10 @@
         plane.perceptions.forEach(function (perception) {
           drawPerception(context, canvas, plane, perception);
         });
-        cursors.filter(function (cursor) {
-          return cursor.source === plane.uid;
-        }).forEach(function (cursor) {
-          drawCursor(context, canvas, cursor);
+        cursors.forEach(function (cursor, index) {
+          if (cursor.source === plane.uid) {
+            drawCursor(context, canvas, cursor, index);
+          }
         });
       }
 
@@ -114,7 +124,15 @@
         }
       }
 
+      async function reset() {
+        const response = await fetch("/api/reset", {method: "POST"});
+        if (response.ok) {
+          draw(await response.json());
+        }
+      }
+
       button.addEventListener("click", send);
+      resetButton.addEventListener("click", reset);
       field.addEventListener("keydown", function (event) {
         if (event.key === "Enter") {
           send();

@@ -88,6 +88,31 @@ class ServerTest(unittest.TestCase):
     self.assertEqual(energies, [self.ENERGY, 2 * self.ENERGY])
     self.assertEqual(state, self.server.unit.state())
 
+  def test_a_reset_gives_back_a_fresh_unit_with_the_same_config_and_no_perception(self):
+    config = self.server.unit.config
+    self.post(b'{"text": "The cat, the"}').read()
+    self.server.unit.update(200.0)
+    self.assertGreater(self.server.unit.ticks, 0)
+    with self.post(b"", "/api/reset") as response:
+      self.assertEqual(response.status, 200)
+      state = json.loads(response.read())
+    self.assertEqual(state["ticks"], 0)
+    self.assertEqual([plane["perceptions"] for plane in state["planes"]], [[] for _ in state["planes"]])
+    self.assertEqual(state, self.server.unit.state())
+    self.assertEqual(self.server.unit.config, config)
+
+  def test_a_reset_gives_back_the_same_cursors_as_the_first_start(self):
+    first = [cursor.state() for cursor in self.server.unit.cursors]
+    self.server.unit.update(500.0)
+    self.post(b"", "/api/reset").read()
+    self.assertEqual([cursor.state() for cursor in self.server.unit.cursors], first)
+
+  def test_the_unit_still_takes_a_text_after_a_reset(self):
+    self.post(b"", "/api/reset").read()
+    with self.post(b'{"text": "house"}') as response:
+      state = json.loads(response.read())
+    self.assertEqual(len(state["planes"][0]["perceptions"]), 1)
+
   def test_an_invalid_body_is_refused_with_a_message_and_nothing_enters_the_unit(self):
     for body in (b'{"text": ""}', b'{"text": "?!"}', b'{}', b'{"text": 3}', b'[1]', b'not json'):
       with self.assertRaises(urllib.error.HTTPError, msg=body) as caught:
