@@ -1,5 +1,5 @@
 {
-  "scheduler": {"tick": 20.0, "budget": 8000, "moment": 500},
+  "scheduler": {"tick": 20.0, "budget": 8000, "moment": 3000},
   "random": {"seed": 1},
   "input": {"energy": 0.25},
   "memory": {"floor": 0.3, "threshold": 0.5, "orbit": [0.05, 0.1], "window": 2, "range": 0.7, "rest": 0.02, "far": 0.2, "base": 0.4, "rate": 0.01, "coexpression": 0, "kappa": 0.5, "amplify": 1.0},
@@ -22,7 +22,7 @@
       "relax": "shape",
       "transfers": [
         {"target": null, "energy": 0.001, "step": 0.01, "cooldown": 750, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 1000, "minimum_age": 500},
-        {"target": "D", "energy": 0.004, "step": 0.01, "cooldown": 6000, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 500, "minimum_age": 0}
+        {"target": "D", "energy": 0.03, "step": 0.03, "cooldown": 1500, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 500, "minimum_age": 0}
       ]
     },
     {
@@ -31,7 +31,7 @@
       "origin_radius": 0.1,
       "relax": null,
       "transfers": [
-        {"target": null, "energy": 0.008, "step": 0.02, "cooldown": 250, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 500}
+        {"target": null, "energy": 0.002, "step": 0.02, "cooldown": 250, "attraction": 1.0, "distance_power": 2.0, "impact": 0.1, "cycle": 250, "minimum_age": 1500}
       ]
     }
   ]
